@@ -1,0 +1,64 @@
+[
+  {
+    "id": "uyo-teaching",
+    "name": "University of Uyo Teaching Hospital",
+    "state": "Akwa Ibom",
+    "type": "Public Teaching Hospital",
+    "addressLines": ["Ikot Obidom", "Uyo", "Akwa Ibom State", "Nigeria"],
+    "phone": "+234 812 345 6780"
+  },
+  {
+    "id": "luth",
+    "name": "Lagos University Teaching Hospital",
+    "state": "Lagos",
+    "type": "Public Teaching Hospital",
+    "addressLines": ["Idi-Araba", "Surulere", "Lagos State", "Nigeria"],
+    "phone": "+234 802 345 6781"
+  },
+  {
+    "id": "ekiti-teaching",
+    "name": "Ekiti State University Teaching Hospital",
+    "state": "Ekiti",
+    "type": "Public Teaching Hospital",
+    "addressLines": ["Ado-Ekiti", "Ekiti State", "Nigeria"],
+    "phone": "+234 803 345 6782"
+  },
+  {
+    "id": "uch-ibadan",
+    "name": "University College Hospital, Ibadan",
+    "state": "Oyo",
+    "type": "Public Teaching Hospital",
+    "addressLines": ["Queen Elizabeth Road", "Ibadan", "Oyo State", "Nigeria"],
+    "phone": "+234 804 345 6783"
+  },
+  {
+    "id": "lasuth",
+    "name": "Lagos State University Teaching Hospital",
+    "state": "Lagos",
+    "type": "Public Teaching Hospital",
+    "addressLines": ["1-5 Oba Akinjobi Way", "Ikeja", "Lagos State", "Nigeria"],
+    "phone": "+234 805 345 6784"
+  },
+  {
+    "id": "national-hospital-abuja",
+    "name": "National Hospital Abuja",
+    "state": "FCT",
+    "type": "Federal Specialist Hospital",
+    "addressLines": [
+      "Central Business District",
+      "Garki",
+      "Abuja",
+      "FCT",
+      "Nigeria"
+    ],
+    "phone": "+234 806 345 6785"
+  },
+  {
+    "id": "absu-teaching",
+    "name": "Abia State University Teaching Hospital",
+    "state": "Abia",
+    "type": "Public Teaching Hospital",
+    "addressLines": ["Aba", "Abia State", "Nigeria"],
+    "phone": "+234 807 345 6786"
+  }
+]
