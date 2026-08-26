@@ -16,7 +16,7 @@ function DashHeader({
   isMobileSidebarOpen,
 }: Props) {
   return (
-    <header className="sticky top-0 z-10 flex h-14 w-full items-center justify-between gap- border-b border-[#E5E5E5] bg-white px-4 sm:px-5 md:h-16 md:px-6">
+    <header className="sticky top-0 z-10 flex h-14 w-full items-center justify-between border-b border-[#E5E5E5] bg-white px-4 py-2 sm:px-5 md:h-16 md:px-6 md:py-0">
       <div className="flex items-center gap-3 sm:gap-4">
         {/* Logo - visible primarily on mobile where sidebar is hidden */}
         <div className="md:hidden flex items-center scale-90 origin-left">

@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPatientProfileReq } from "@/config/service/patient.service";
+import { queryKeys } from "@/config/query-keys";
 import { motion, Variants } from "framer-motion";
 import { useFormContext, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -55,7 +56,7 @@ const PersonalDetails = ({ onNext, isReschedule }: PersonalDetailsProps) => {
   } = useFormContext<BookingFormData>();
 
   const { data: profileResp } = useQuery({
-    queryKey: ["patientProfile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: getPatientProfileReq,
     enabled: !isReschedule,
   });

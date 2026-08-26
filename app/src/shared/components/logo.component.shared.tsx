@@ -10,6 +10,13 @@ function Logo({ isBackground = false, isExpanded = true, className }: Props) {
     <div
       className={`${className} flex items-center ${isExpanded ? "min-w-[7rem]" : "min-w-0 w-full justify-center pl-0"} ${isBackground && ""} transition-all duration-300`}
     >
+      {isExpanded && (
+        <img
+          src={carelexaLogo}
+          alt="Carelexa"
+          className="h-[60px] w-auto object-contain md:hidden"
+        />
+      )}
       {isExpanded ? (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -17,6 +24,7 @@ function Logo({ isBackground = false, isExpanded = true, className }: Props) {
           height="60"
           viewBox="0 0 239 81"
           fill="none"
+          className="hidden md:block"
         >
           <g clip-path="url(#clip0_4018_2785)">
             <path
@@ -80,7 +88,11 @@ function Logo({ isBackground = false, isExpanded = true, className }: Props) {
           </defs>
         </svg>
       ) : (
-        <img src={carelexaLogo} alt="Logo" className=" w-auto" />
+        <img
+          src={carelexaLogo}
+          alt="Carelexa"
+          className="h-10 w-auto object-contain"
+        />
       )}
     </div>
   );

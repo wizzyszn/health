@@ -125,3 +125,19 @@ Before submitting a Pull Request, ensure your code meets our styling standards. 
 - **Lint**: `pnpm run check-lint` (Fixes auto-applied with `pnpm run format`)
 
 When committing, Husky will run `lint-staged` ensuring all TypeScript and ESLint rules are strictly checked.
+
+---
+
+## ▲ Vercel Deployment
+
+The repository-level `vercel.json` builds the Vite application from `app/`
+with the pnpm version declared in `package.json`. Keep the Vercel project Root
+Directory set to the repository root; the configuration supplies the install,
+build, output, and SPA rewrite settings.
+
+Configure `VITE_API_BASE_URL` for both Preview and Production deployments in
+Vercel Project Settings → Environment Variables. It must point to the deployed
+API base URL, including its version prefix when required.
+
+`pnpm-lock.yaml` is intentionally committed for reproducible production
+installs. Do not add npm, Yarn, or Bun lockfiles alongside it.

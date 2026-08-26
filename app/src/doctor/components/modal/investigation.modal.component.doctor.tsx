@@ -28,6 +28,7 @@ import {
   updateInvestigationListForConsultationReq,
 } from "@/config/service/doctor.service";
 import { getInvestigationDisplayFields } from "@/shared/utils/investigation-display.util";
+import { queryKeys } from "@/config/query-keys";
 
 interface InvestigationRowData {
   category: string;
@@ -535,7 +536,7 @@ export function InvestigationModal({
 
   const { data: existingInvestigationsRes, isLoading: isLoadingExisting } =
     useQuery({
-      queryKey: ["consultation-investigations", consultationId],
+      queryKey: queryKeys.consultationInvestigations(consultationId),
       queryFn: () => getInvestigationListForConsultationReq(consultationId),
       enabled: !!consultationId,
       retry: false,
@@ -572,13 +573,7 @@ export function InvestigationModal({
 
   const invalidateInvestigationQueries = () => {
     queryClient.invalidateQueries({
-      queryKey: ["consultation-investigations", consultationId],
-    });
-    queryClient.invalidateQueries({
-      queryKey: ["investigation-list", consultationId],
-    });
-    queryClient.invalidateQueries({
-      queryKey: ["consultation-investigations-list", consultationId],
+      queryKey: queryKeys.consultationInvestigations(consultationId),
     });
     queryClient.invalidateQueries({ queryKey: ["investigation_doc"] });
   };

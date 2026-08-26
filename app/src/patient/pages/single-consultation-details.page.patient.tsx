@@ -1,6 +1,7 @@
 import { MoveLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -87,7 +88,7 @@ function ViewConsultationDetails() {
   });
 
   const { data: profileData } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: () => getPatientProfileReq(),
   });
 

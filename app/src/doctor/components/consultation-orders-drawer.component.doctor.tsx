@@ -27,6 +27,7 @@ import {
   formatInvestigationLabel,
   getInvestigationDisplayFields,
 } from "@/shared/utils/investigation-display.util";
+import { queryKeys } from "@/config/query-keys";
 
 export function ConsultationOrdersDrawer({
   consultationId,
@@ -53,13 +54,13 @@ export function ConsultationOrdersDrawer({
   // });
 
   const { data: investigationsRes, isLoading: isLoadingInv } = useQuery({
-    queryKey: ["consultation-investigations-list", consultationId],
+    queryKey: queryKeys.consultationInvestigations(consultationId),
     queryFn: () => getInvestigationListForConsultationReq(consultationId),
     enabled: isOpen && !!consultationId,
   });
 
   const { data: medicationsRes, isLoading: isLoadingMed } = useQuery({
-    queryKey: ["consultation-medications-list", consultationId],
+    queryKey: queryKeys.consultationMedications(consultationId),
     queryFn: () => getMedicationsForConsultation(consultationId),
     enabled: isOpen && !!consultationId,
   });

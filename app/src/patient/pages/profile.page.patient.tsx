@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 import { useDispatch } from "react-redux";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import avatar from "@/assets/images/profile-image.png";
@@ -198,7 +199,7 @@ export default function PatientProfile() {
   const dispatch = useDispatch();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: getPatientProfileReq,
   });
 
@@ -304,10 +305,13 @@ export default function PatientProfile() {
       setPendingFile(null);
       setPreviewImage(null);
 
-      queryClient.setQueryData(["patient-profile"], (old: typeof data) => ({
-        ...old,
-        data: (response as GeneralReturnInt<PatientProfileInterface>).data,
-      }));
+      queryClient.setQueryData(
+        queryKeys.patientProfile,
+        (old: typeof data) => ({
+          ...old,
+          data: (response as GeneralReturnInt<PatientProfileInterface>).data,
+        }),
+      );
 
       setOriginalValues(form.getValues());
     },
@@ -326,10 +330,13 @@ export default function PatientProfile() {
       setPreviewImage(null);
       setPendingFile(null);
 
-      queryClient.setQueryData(["patient-profile"], (old: typeof data) => ({
-        ...old,
-        data: { ...old?.data, profile_picture_url: "" },
-      }));
+      queryClient.setQueryData(
+        queryKeys.patientProfile,
+        (old: typeof data) => ({
+          ...old,
+          data: { ...old?.data, profile_picture_url: "" },
+        }),
+      );
     },
     onError: () => {
       toast.error("Failed to remove photo.");

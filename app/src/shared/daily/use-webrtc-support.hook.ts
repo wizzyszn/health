@@ -1,7 +1,8 @@
 import { useState } from "react";
 
 export type WebRtcSupport =
-  { supported: true } | { supported: false; reason: string };
+  | { supported: true }
+  | { supported: false; reason: string };
 
 /**
  * Gate for mounting daily-js: requires a secure context (getUserMedia is

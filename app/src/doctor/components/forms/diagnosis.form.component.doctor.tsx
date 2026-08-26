@@ -305,7 +305,8 @@ function DiagnosisInner({
         ],
         final_diagnosis: [nextData.finalPills.join(", "), nextData.finalText],
         status: (completed ? "COMPLETED" : "INCOMPLETE") as
-          "COMPLETED" | "INCOMPLETE",
+          | "COMPLETED"
+          | "INCOMPLETE",
       };
 
       if (completed && !silent) {

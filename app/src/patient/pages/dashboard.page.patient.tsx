@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { MetricCard } from "../components/metric-card.component.patient";
 import { ConsultationAndAppointmentList } from "../components/consultation-and-appointment-list.component.patient";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 import {
   PatientDashMetrics,
   getPatientDashMetrics,
@@ -99,7 +100,7 @@ function PatientDash() {
   });
 
   const { data: profileData } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: getPatientProfileReq,
   });
 

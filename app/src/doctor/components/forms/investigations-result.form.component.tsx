@@ -177,7 +177,8 @@ function InvestigationResultsInner({
       const payload = {
         ...nextData,
         status: (completed ? "COMPLETED" : "INCOMPLETE") as
-          "COMPLETED" | "INCOMPLETE",
+          | "COMPLETED"
+          | "INCOMPLETE",
       };
 
       if (completed && !silent) {

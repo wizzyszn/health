@@ -257,7 +257,11 @@ const buildPayload = (data: BookingFormData) => {
     reason_for_visit: data.complaint,
     confirm_appointment: true as const,
     consultation_type: data.consultationType as
-      "VIDEO" | "CHAT" | "AUDIO" | "MEETADOCTOR" | "HOMESERVICE",
+      | "VIDEO"
+      | "CHAT"
+      | "AUDIO"
+      | "MEETADOCTOR"
+      | "HOMESERVICE",
   };
 };
 

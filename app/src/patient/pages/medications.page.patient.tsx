@@ -39,6 +39,7 @@ import {
 } from "@/patient/components/medication/medication-pdf-instructions.util.patient";
 import { PatientRecordGroupSkeleton } from "@/shared/components/patient-record-skeletons.component.shared";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 import SEO from "@/shared/components/seo.component";
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -59,7 +60,7 @@ export default function MedicationsPage() {
   });
 
   const { data: profileData } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: () => getPatientProfileReq(),
   });
   const profile = profileData?.data as MedicationPatientProfile | undefined;

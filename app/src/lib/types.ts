@@ -277,7 +277,13 @@ type RejectedPayload = {
 type Formulation = "TABLET" | "SYRUP" | "CAPSULE" | "INJECTION";
 type Interval = "DAILY" | "WEEKLY" | "MONTHLY" | "AS_NEEDED";
 type DoseUnit =
-  "MILLIGRAM" | "MICROGRAM" | "PUFFS" | "TAB" | "CAB" | "MLS" | "LITRE";
+  | "MILLIGRAM"
+  | "MICROGRAM"
+  | "PUFFS"
+  | "TAB"
+  | "CAB"
+  | "MLS"
+  | "LITRE";
 type DurationUnit = "MINUTE" | "HOUR" | "DAY" | "MONTH";
 interface MedicationFormulation {
   formulation: Formulation;

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 import { Button } from "@/components/ui/button";
 import {
   getPatientProfileReq,
@@ -47,7 +48,7 @@ export default function ViewReferralDetails() {
   });
 
   const { data: profileData } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: () => getPatientProfileReq(),
   });
 

@@ -15,6 +15,7 @@ import { RootState } from "@/config/stores/store";
 
 import { useQuery } from "@tanstack/react-query";
 import SEO from "@/shared/components/seo.component";
+import { queryKeys } from "@/config/query-keys";
 
 const CONSULTATION_TYPE_LABELS: Record<string, string> = {
   VIDEO: "Video Call",
@@ -42,7 +43,7 @@ function Schedules() {
   });
 
   const { data: availabilityData } = useQuery({
-    queryKey: ["availability"],
+    queryKey: queryKeys.doctorAvailability,
     queryFn: () => getDoctorAvailabilitySlotReq(),
   });
 

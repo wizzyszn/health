@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 
 import useUrlSearchParams from "@/shared/hooks/use-url-search-params";
 import {
@@ -32,7 +33,7 @@ function Investigation() {
   });
 
   const { data: profileData } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: () => getPatientProfileReq(),
   });
   const profile = profileData?.data as InvestigationPatientProfile | undefined;

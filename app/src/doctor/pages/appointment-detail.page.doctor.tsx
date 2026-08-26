@@ -62,7 +62,11 @@ import SEO from "@/shared/components/seo.component";
 // ─── Consultation type config ───────────────────────────────────────────────
 
 type ConsultationType =
-  "VIDEO" | "CHAT" | "AUDIO" | "MEETADOCTOR" | "HOMESERVICE";
+  | "VIDEO"
+  | "CHAT"
+  | "AUDIO"
+  | "MEETADOCTOR"
+  | "HOMESERVICE";
 
 const CONSULTATION_CONFIG: Record<
   ConsultationType,

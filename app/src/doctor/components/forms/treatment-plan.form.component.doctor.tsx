@@ -143,7 +143,8 @@ function TreatmentPlanInner({
       const payload = {
         treatment_plan_details: nextValue,
         status: (completed ? "COMPLETED" : "INCOMPLETE") as
-          "COMPLETED" | "INCOMPLETE",
+          | "COMPLETED"
+          | "INCOMPLETE",
       };
 
       if (completed && !silent) {

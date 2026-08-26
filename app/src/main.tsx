@@ -4,11 +4,11 @@ import "./index.css";
 import App from "./App.tsx";
 import { Provider } from "react-redux";
 import { store } from "@/config/stores/store.ts";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/config/query-client";
 import { scan } from "react-scan";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
-const queryClient = new QueryClient();
 scan({
   enabled: false,
 });

@@ -24,7 +24,13 @@ dev-dist
 *.sln
 *.sw?
 dev-dist/
+
+# This project uses pnpm. Ignore lockfiles from competing package managers.
 package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+bun.lock
+bun.lockb
 .env
 .freebuff
 ../.freebuff/

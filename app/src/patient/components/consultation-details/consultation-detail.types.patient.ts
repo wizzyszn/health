@@ -14,7 +14,11 @@ import {
 } from "lucide-react";
 
 export type ConsultationType =
-  "VIDEO" | "CHAT" | "AUDIO" | "MEETADOCTOR" | "HOMESERVICE";
+  | "VIDEO"
+  | "CHAT"
+  | "AUDIO"
+  | "MEETADOCTOR"
+  | "HOMESERVICE";
 
 export type ReferralItem = NonNullable<
   Awaited<ReturnType<typeof listReferralsForPatientConsultationReq>>["data"]

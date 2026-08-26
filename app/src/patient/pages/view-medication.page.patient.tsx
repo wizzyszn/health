@@ -1,5 +1,6 @@
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/config/query-keys";
 import {
   getSingleMedicationReq,
   getPatientProfileReq,
@@ -59,7 +60,7 @@ export default function ViewMedicationDetailPage() {
   });
 
   const { data: profileData } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: queryKeys.patientProfile,
     queryFn: () => getPatientProfileReq(),
   });
   const profile = profileData?.data;

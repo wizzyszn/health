@@ -23,6 +23,7 @@ import {
 } from "@/config/service/doctor.service";
 import { useSelector } from "react-redux";
 import { RootState } from "@/config/stores/store";
+import { queryKeys } from "@/config/query-keys";
 
 const Toggle = ({
   label,
@@ -135,7 +136,7 @@ export default function DoctorAvailabilityTab() {
   const userTimezone = useSelector((state: RootState) => state.auth.timezone);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["doctor-availability"],
+    queryKey: queryKeys.doctorAvailability,
     queryFn: getDoctorAvailabilitySlotReq,
   });
 
@@ -194,7 +195,7 @@ export default function DoctorAvailabilityTab() {
       toast.success("Availability updated successfully!");
       // Reset form on success to correctly reset the `isDirty` state back to false
       form.reset(form.getValues());
-      queryClient.setQueryData(["doctor-availability"], response);
+      queryClient.setQueryData(queryKeys.doctorAvailability, response);
     },
     onError: (error: unknown) => {
       let errorMsg = "Failed to update availability";

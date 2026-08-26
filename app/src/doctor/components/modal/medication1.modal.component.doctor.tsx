@@ -58,6 +58,7 @@ import {
   type MedicationPrescriptionModalValues,
   type MedicationPrescriptionRowValues,
 } from "@/lib/validation-schemas";
+import { queryKeys } from "@/config/query-keys";
 
 interface MedicationModalProps {
   onClose: () => void;
@@ -65,7 +66,8 @@ interface MedicationModalProps {
 }
 
 type MedicationRowPrefix =
-  `pendingMedications.${number}` | `newMedications.${number}`;
+  | `pendingMedications.${number}`
+  | `newMedications.${number}`;
 
 function createEmptyMedicationRow(): Partial<MedicationPrescriptionRowValues> {
   return {
@@ -541,7 +543,7 @@ export function MedicationModal({
 
   const { data: existingMedicationsRes, isLoading: isLoadingExisting } =
     useQuery({
-      queryKey: ["consultation-medications", consultationId],
+      queryKey: queryKeys.consultationMedications(consultationId ?? ""),
       queryFn: () => getMedicationsForConsultation(consultationId!),
       enabled: !!consultationId,
       retry: false,
@@ -585,7 +587,7 @@ export function MedicationModal({
         .findIndex((row) => row._id === id);
       if (index >= 0) removePending(index);
       queryClient.invalidateQueries({
-        queryKey: ["consultation-medications", consultationId],
+        queryKey: queryKeys.consultationMedications(consultationId ?? ""),
       });
       queryClient.invalidateQueries({ queryKey: ["medications_doc"] });
       queryClient.invalidateQueries({
@@ -645,7 +647,7 @@ export function MedicationModal({
 
       pendingSyncedRef.current = false;
       const fresh = await queryClient.fetchQuery({
-        queryKey: ["consultation-medications", consultationId],
+        queryKey: queryKeys.consultationMedications(consultationId),
         queryFn: () => getMedicationsForConsultation(consultationId),
       });
 

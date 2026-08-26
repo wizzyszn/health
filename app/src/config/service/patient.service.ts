@@ -884,7 +884,11 @@ export const bookAnAppointmentReq = (data: {
   reason_for_visit?: string;
   confirm_appointment: boolean;
   consultation_type?:
-    "VIDEO" | "CHAT" | "AUDIO" | "MEETADOCTOR" | "HOMESERVICE";
+    | "VIDEO"
+    | "CHAT"
+    | "AUDIO"
+    | "MEETADOCTOR"
+    | "HOMESERVICE";
   complaint_brief?: string;
   Medical_conditions?: string[]; // examples ["Hypertension","Asthma"],
   allergies?: string[];

@@ -759,7 +759,13 @@ export const updateMedicationRecordReq = (
     medication?: string;
     dose?: number;
     unit?:
-      "MILLIGRAM" | "MICROGRAM" | "PUFFS" | "TAB" | "CAB" | "MLS" | "LITRE";
+      | "MILLIGRAM"
+      | "MICROGRAM"
+      | "PUFFS"
+      | "TAB"
+      | "CAB"
+      | "MLS"
+      | "LITRE";
 
     interval?: "DAILY" | "WEEKLY" | "MONTHLY" | "AS_NEEDED";
 
@@ -890,7 +896,13 @@ export const createMedicationForConsultationReq = (
       formulary: "TABLET" | "SYRUP" | "CAPSULE" | "INJECTION";
       medication: string;
       unit:
-        "MILLIGRAM" | "MICROGRAM" | "PUFFS" | "TAB" | "CAB" | "MLS" | "LITRE";
+        | "MILLIGRAM"
+        | "MICROGRAM"
+        | "PUFFS"
+        | "TAB"
+        | "CAB"
+        | "MLS"
+        | "LITRE";
       dose?: number;
       interval: "DAILY" | "WEEKLY" | "MONTHLY" | "AS_NEEDED";
       duration_unit: "MINUTE" | "HOUR" | "DAY" | "MONTH";

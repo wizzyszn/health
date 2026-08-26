@@ -10,7 +10,13 @@ export interface DailyVideoSession {
 }
 
 export type DailyConnectionStatus =
-  "idle" | "joining" | "joined" | "waiting" | "reconnecting" | "left" | "error";
+  | "idle"
+  | "joining"
+  | "joined"
+  | "waiting"
+  | "reconnecting"
+  | "left"
+  | "error";
 
 export interface DailyParticipantTile {
   id: string;
