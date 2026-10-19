@@ -20,7 +20,7 @@ import {
 
 import MainPageHeader from "@/shared/components/main-page-header.component.shared";
 import { profileSchema } from "@/auth/doctor/lib/schemas";
-import { cn } from "@/lib/utils";
+import { cn, getApiErrorMessage } from "@/lib/utils";
 import { Camera, Eye, EyeOff, LogOut, MoveLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -211,7 +211,7 @@ export default function DoctorProfile() {
         err.response?.data?.message ||
         err.message ||
         "Failed to change password";
-      toast.error(errorData);
+      toast.warning(errorData);
     },
   });
 
@@ -232,15 +232,7 @@ export default function DoctorProfile() {
       toast.success("Timezone updated successfully!");
     },
     onError: (error) => {
-      const err = error as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to update timezone",
-      );
+      toast.error(getApiErrorMessage(error, "Failed to update timezone"));
     },
   });
 
@@ -279,8 +271,8 @@ export default function DoctorProfile() {
         };
       });
     },
-    onError: () => {
-      toast.error("Failed to update profile");
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to update profile"));
     },
   });
 
@@ -306,8 +298,8 @@ export default function DoctorProfile() {
         };
       });
     },
-    onError: () => {
-      toast.error("Failed to remove photo.");
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to remove photo."));
     },
   });
 
@@ -337,12 +329,12 @@ export default function DoctorProfile() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+      toast.warning("Please select an image file");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image too large (max 5MB)");
+      toast.warning("Image too large (max 5MB)");
       return;
     }
 

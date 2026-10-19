@@ -59,7 +59,7 @@ export default function AdminSignUp() {
       navigateToAdminLogin();
     },
     onError: (response) => {
-      toast.error(response.message);
+      toast.warning(response.message);
     },
   });
   function onSubmit(data: AdminRegisterFormValues) {

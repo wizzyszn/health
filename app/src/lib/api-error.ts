@@ -3,15 +3,22 @@
  * response_code, so callers can branch on real values instead of parsing
  * message strings.
  *
- * Important: for HTTP 409 the backend's response_code is NOT numeric — it
- * falls through to the literal string "Internal Server error". Branching on
- * httpStatus is therefore the only reliable signal for that case (see
- * docs/video-call-integration.spec.md §6).
+ * Contract — server is the single source of truth for user-facing error copy:
+ *   - `message`    = the clean server message (response_description preferred,
+ *                    falls back to message), shown to users verbatim.
+ *   - `description` = same clean message, kept for downstream callers that
+ *                    read `.description` first (e.g. video-session-errors.util).
+ *   - `responseCode` = backend envelope response_code (e.g. "006", "011").
+ *   - `httpStatus` = HTTP status code.
  *
- * Message format note: the legacy requestHandler threw errors whose message
- * ended with ", status: <code>". Downstream parsers (e.g.
- * getRawApiErrorMessage in lib/utils.ts) strip that suffix, so this class
- * preserves the same convention for compatibility.
+ * Sensitive/internal details are never propagated here: the backend's
+ * AllExceptionsFilter sanitises unhandled (500) failures to a generic message
+ * before they reach the client, so whatever is in `message`/`description` is
+ * safe to surface.
+ *
+ * Important for HTTP 409: the backend's response_code falls through to the
+ * literal string "Internal Server error". Branching on httpStatus is the only
+ * reliable signal for that case (see docs/video-call-integration.spec.md §6).
  */
 export class ApiError extends Error {
   /** HTTP status code of the failed response, when one was received. */
@@ -33,7 +40,7 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.httpStatus = params.httpStatus;
     this.responseCode = params.responseCode;
-    this.description = params.description;
+    this.description = params.description ?? params.message;
   }
 }
 

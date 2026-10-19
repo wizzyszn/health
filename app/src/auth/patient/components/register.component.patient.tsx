@@ -190,7 +190,7 @@ function RegisterPatient() {
       setResendCooldown(60);
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to initiate registration");
+      toast.warning(error.message || "Failed to initiate registration");
     },
   });
 
@@ -216,7 +216,7 @@ function RegisterPatient() {
       setStep("bio", { registrationToken: token });
     },
     onError: (error) => {
-      toast.error(error.message || "Invalid OTP");
+      toast.warning(error.message || "Invalid OTP");
     },
   });
 
@@ -231,7 +231,7 @@ function RegisterPatient() {
       setResendCooldown(60);
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to resend OTP");
+      toast.warning(error.message || "Failed to resend OTP");
     },
   });
 
@@ -257,7 +257,7 @@ function RegisterPatient() {
       deleteParam("step");
     },
     onError: (error) => {
-      toast.error(error.message || "Registration failed");
+      toast.warning(error.message || "Registration failed");
     },
   });
 

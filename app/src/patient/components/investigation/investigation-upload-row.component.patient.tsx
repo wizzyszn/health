@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { uploadInvestigationResultImageReq } from "@/config/service/patient.service";
-import { cn } from "@/lib/utils";
+import { cn, getApiErrorMessage } from "@/lib/utils";
 
 import { formatInvestigationLabel } from "@/shared/utils/investigation-display.util";
 import { InvestigationRaw } from "./investigation.types.patient";
@@ -81,8 +81,9 @@ export function InvestigationUploadRow({
       toast.success("Result uploaded successfully");
       resetSelection();
       queryClient.invalidateQueries({ queryKey: ["patient-investigations"] });
-    } catch {
-      toast.error("Failed to upload result");
+    } catch (error) {
+      console.error(error);
+      toast.error(getApiErrorMessage(error, "Failed to upload result"));
     } finally {
       setIsUploading(false);
     }

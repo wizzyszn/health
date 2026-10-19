@@ -82,7 +82,7 @@ export default function LoginForm() {
       navigate();
     },
     onError: (error) => {
-      toast.error(error.message);
+      toast.warning(error.message);
     },
   });
 

@@ -189,10 +189,7 @@ function ConsultationSpace() {
                   side="left"
                   className="p-0 sm:max-w-md w-full overflow-y-auto"
                 >
-                  <PatientDataSidebar
-                    patient={consultationDetails?.user_id}
-                    consultationId={consultationId}
-                  />
+                  <PatientDataSidebar patient={consultationDetails?.user_id} />
                 </SheetContent>
               </Sheet>
               <ConsultationOrdersDrawer consultationId={consultationId} />
@@ -202,10 +199,7 @@ function ConsultationSpace() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-2 items-start flex-1 min-h-0">
           <div className="hidden lg:block col-span-1 sticky top-0 h-full overflow-y-auto">
-            <PatientDataSidebar
-              patient={consultationDetails?.user_id}
-              consultationId={consultationId}
-            />
+            <PatientDataSidebar patient={consultationDetails?.user_id} />
           </div>
 
           <div className="col-span-1 lg:col-span-3 h-full min-h-0 flex flex-col gap-2">
@@ -300,16 +294,6 @@ function ConsultationSpace() {
                   typeof consultationDetails?.user_id === "object"
                     ? (consultationDetails.user_id._id ??
                       consultationDetails.user_id.id)
-                    : undefined
-                }
-                patientMedical={
-                  typeof consultationDetails?.user_id === "object"
-                    ? {
-                        allergies: consultationDetails.user_id.allergies ?? [],
-                        previousMedicalConditions:
-                          consultationDetails.user_id
-                            .previous_medical_conditions ?? [],
-                      }
                     : undefined
                 }
               />

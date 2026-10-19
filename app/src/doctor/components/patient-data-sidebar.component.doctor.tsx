@@ -1,12 +1,13 @@
 import { User, ChevronDown, ChevronRight, Loader2, Beaker } from "lucide-react";
 import { useState } from "react";
 import { differenceInYears, format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   getPatientConsultationHistoryreq,
   getPatientMedicationHistoryreq,
   getPatientInvestigationHistoryReq,
+  getPatientReferralHistoryreq,
 } from "@/config/service/doctor.service";
 import { formatZonedDate, formatZonedTimeRange } from "@/lib/utils";
 import {
@@ -18,6 +19,7 @@ import {
   InvestigationResultPreviewSheet,
   type InvestigationResultPreviewContext,
 } from "./investigation-result-preview-sheet.component.doctor";
+import { ReferralHistoryPreviewSheet } from "./referral-history-preview-sheet.component.doctor";
 
 // interface ReferralRecord {
 //   date: string;
@@ -32,6 +34,9 @@ import {
 //     referral: "Cardiology - Dr. Martinez",
 //   },
 // ];
+
+// Number of history rows shown per section before the "See more" affordance.
+const HISTORY_PAGE_SIZE = 5;
 
 interface PatientSidebarProps {
   patient?: {
@@ -48,7 +53,6 @@ interface PatientSidebarProps {
     previous_medical_conditions?: string[];
     profile_picture_url?: string;
   };
-  consultationId?: string;
 }
 
 export function PatientDataSidebar({ patient }: PatientSidebarProps) {
@@ -58,42 +62,101 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
   const [previewConsultationId, setPreviewConsultationId] = useState<
     string | null
   >(null);
+  const [previewReferralId, setPreviewReferralId] = useState<string | null>(
+    null,
+  );
   const [expandedInvestigationGroup, setExpandedInvestigationGroup] = useState<
     string | null
   >(null);
   const [investigationResultPreview, setInvestigationResultPreview] =
     useState<InvestigationResultPreviewContext | null>(null);
 
+  // Show the newest five rows per section; "See more" grows the window and the
+  // list stays scrollable, so the panel never grows past a comfortable glance.
+  const [consultationsLimit, setConsultationsLimit] =
+    useState(HISTORY_PAGE_SIZE);
+  const [medicationsLimit, setMedicationsLimit] = useState(HISTORY_PAGE_SIZE);
+  const [investigationsLimit, setInvestigationsLimit] =
+    useState(HISTORY_PAGE_SIZE);
+  const [referralsLimit, setReferralsLimit] = useState(HISTORY_PAGE_SIZE);
+
   const patientId = patient?._id || patient?.id || "";
 
-  const { data: consultationsData, isLoading: consultationsLoading } = useQuery(
-    {
-      queryKey: ["patient-consultation-history", patientId],
-      queryFn: () => getPatientConsultationHistoryreq(patientId),
-      enabled: !!patientId,
-    },
-  );
-
-  const { data: medicationsData, isLoading: medicationsLoading } = useQuery({
-    queryKey: ["patient-medication-history", patientId],
-    queryFn: () => getPatientMedicationHistoryreq(patientId),
+  const {
+    data: consultationsData,
+    isLoading: consultationsLoading,
+    isFetching: consultationsFetching,
+  } = useQuery({
+    queryKey: ["patient-consultation-history", patientId, consultationsLimit],
+    queryFn: () =>
+      getPatientConsultationHistoryreq(patientId, {
+        limit: String(consultationsLimit),
+      }),
     enabled: !!patientId,
+    placeholderData: keepPreviousData,
   });
 
-  const { data: investigationsData, isLoading: investigationsLoading } =
-    useQuery({
-      queryKey: ["patient-investigation-history", patientId],
-      queryFn: () =>
-        getPatientInvestigationHistoryReq(patientId, { perPage: "50" }),
-      enabled: !!patientId,
-    });
+  const {
+    data: medicationsData,
+    isLoading: medicationsLoading,
+    isFetching: medicationsFetching,
+  } = useQuery({
+    queryKey: ["patient-medication-history", patientId, medicationsLimit],
+    queryFn: () =>
+      getPatientMedicationHistoryreq(patientId, {
+        limit: String(medicationsLimit),
+      }),
+    enabled: !!patientId,
+    placeholderData: keepPreviousData,
+  });
+
+  const {
+    data: investigationsData,
+    isLoading: investigationsLoading,
+    isFetching: investigationsFetching,
+  } = useQuery({
+    queryKey: ["patient-investigation-history", patientId, investigationsLimit],
+    queryFn: () =>
+      getPatientInvestigationHistoryReq(patientId, {
+        page: "1",
+        perPage: String(investigationsLimit),
+      }),
+    enabled: !!patientId,
+    placeholderData: keepPreviousData,
+  });
+
+  const {
+    data: referralsData,
+    isLoading: referralsLoading,
+    isFetching: referralsFetching,
+  } = useQuery({
+    queryKey: ["patient-referral-history", patientId, referralsLimit],
+    queryFn: () =>
+      getPatientReferralHistoryreq(patientId, {
+        limit: String(referralsLimit),
+      }),
+    enabled: !!patientId,
+    placeholderData: keepPreviousData,
+  });
 
   const consultations = consultationsData?.data ?? [];
   const medications = medicationsData?.data ?? [];
   const investigationGroups = investigationsData?.data?.groups ?? [];
+  const referrals = referralsData?.data ?? [];
   const previewConsultation = consultations.find(
     (consult) => consult._id === previewConsultationId,
   );
+  const previewReferral = referrals.find(
+    (referral) => referral._id === previewReferralId,
+  );
+
+  // A full page back means there is (probably) more to fetch; a short page is
+  // the end of the list, so the "See more" affordance disappears.
+  const hasMoreConsultations = consultations.length >= consultationsLimit;
+  const hasMoreMedications = medications.length >= medicationsLimit;
+  const hasMoreInvestigations =
+    investigationGroups.length >= investigationsLimit;
+  const hasMoreReferrals = referrals.length >= referralsLimit;
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -126,6 +189,38 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
       </td>
     </tr>
   );
+
+  const SeeMoreButton = ({
+    visible,
+    fetching,
+    onClick,
+  }: {
+    visible: boolean;
+    fetching: boolean;
+    onClick: () => void;
+  }) => {
+    if (!visible) return null;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={fetching}
+        className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2 py-1.5 text-[11px] font-medium text-[#5164E8] hover:bg-[#EAEDFF] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {fetching ? (
+          <>
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Loading...
+          </>
+        ) : (
+          <>
+            See more
+            <ChevronDown className="w-3 h-3" />
+          </>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="bg-white border-r border-[#E5E7EB] overflow-y-auto h-full shadow-sm">
@@ -333,6 +428,13 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
                     </table>
                   </div>
                 </div>
+                <SeeMoreButton
+                  visible={hasMoreConsultations}
+                  fetching={consultationsFetching}
+                  onClick={() =>
+                    setConsultationsLimit((prev) => prev + HISTORY_PAGE_SIZE)
+                  }
+                />
               </div>
             )}
           </div>
@@ -517,6 +619,13 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
                     })}
                   </div>
                 )}
+                <SeeMoreButton
+                  visible={hasMoreInvestigations}
+                  fetching={investigationsFetching}
+                  onClick={() =>
+                    setInvestigationsLimit((prev) => prev + HISTORY_PAGE_SIZE)
+                  }
+                />
               </div>
             )}
           </div>
@@ -537,44 +646,53 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
             {expandedSection === "medications" && (
               <div className="p-4 pt-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                        <th className="text-left py-2 px-1">Date</th>
-                        <th className="text-left py-2 px-1">Medication</th>
-                        <th className="text-left py-2 px-1">Dose</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {medicationsLoading ? (
-                        <LoadingRow colSpan={3} />
-                      ) : medications.length === 0 ? (
-                        <EmptyRow colSpan={3} label="medications" />
-                      ) : (
-                        medications.map((med) => (
-                          <tr
-                            key={med._id}
-                            className="text-[#374151] hover:bg-[#F3F4F6] cursor-pointer transition-colors"
-                          >
-                            <td className="py-2 px-1">
-                              {format(new Date(med.createdAt), "yyyy-MM-dd")}
-                            </td>
-                            <td className="py-2 px-1">{med.medication}</td>
-                            <td className="py-2 px-1">
-                              {med.dose} {med.unit}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="max-h-[13rem] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
+                          <th className="text-left py-2 px-1">Date</th>
+                          <th className="text-left py-2 px-1">Medication</th>
+                          <th className="text-left py-2 px-1">Dose</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {medicationsLoading ? (
+                          <LoadingRow colSpan={3} />
+                        ) : medications.length === 0 ? (
+                          <EmptyRow colSpan={3} label="medications" />
+                        ) : (
+                          medications.map((med) => (
+                            <tr
+                              key={med._id}
+                              className="text-[#374151] hover:bg-[#F3F4F6] cursor-pointer transition-colors"
+                            >
+                              <td className="py-2 px-1">
+                                {format(new Date(med.createdAt), "yyyy-MM-dd")}
+                              </td>
+                              <td className="py-2 px-1">{med.medication}</td>
+                              <td className="py-2 px-1">
+                                {med.dose} {med.unit}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+                <SeeMoreButton
+                  visible={hasMoreMedications}
+                  fetching={medicationsFetching}
+                  onClick={() =>
+                    setMedicationsLimit((prev) => prev + HISTORY_PAGE_SIZE)
+                  }
+                />
               </div>
             )}
           </div>
 
           {/* Referrals */}
-          {/* <div className="bg-[#F9FAFB] rounded-lg overflow-hidden border border-[#E5E7EB]">
+          <div className="bg-[#F9FAFB] rounded-lg overflow-hidden border border-[#E5E7EB]">
             <button
               onClick={() => toggleSection("referrals")}
               className="w-full flex items-center justify-between p-4 hover:bg-[#F3F4F6] transition-colors"
@@ -588,30 +706,79 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
             </button>
             {expandedSection === "referrals" && (
               <div className="p-4 pt-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                        <th className="text-left py-2 px-1">Date</th>
-                        <th className="text-left py-2 px-1">Referral</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {referrals.map((ref, idx) => (
-                        <tr
-                          key={idx}
-                          className="text-[#374151] hover:bg-[#F3F4F6] cursor-pointer transition-colors"
-                        >
-                          <td className="py-2 px-1">{ref.date}</td>
-                          <td className="py-2 px-1">{ref.referral}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {referralsLoading ? (
+                  <div className="py-4 text-center text-[#6B7280]">
+                    <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+                    Loading...
+                  </div>
+                ) : referrals.length === 0 ? (
+                  <p className="py-4 text-center text-[#9CA3AF] text-xs">
+                    No referrals created
+                  </p>
+                ) : (
+                  <div className="max-h-[13rem] overflow-y-auto space-y-2">
+                    {referrals.map((ref) => (
+                      <div
+                        key={ref._id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setPreviewReferralId(ref._id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setPreviewReferralId(ref._id);
+                          }
+                        }}
+                        className="p-2 border-b border-[#E5E7EB] last:border-b-0 hover:bg-[#F3F4F6] cursor-pointer transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5164E8]"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-[11px] text-[#374151]">
+                              {ref.referred_doctor_name ||
+                                ref.specialist_name ||
+                                "Specialist"}
+                            </div>
+                            <div className="text-[10px] text-[#6B7280]">
+                              {ref.hospital || "Hospital not specified"}
+                            </div>
+                            <div className="text-[10px] text-[#6B7280] mt-0.5">
+                              {formatZonedDate(ref.createdAt, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 ${
+                                ref.assign_to_patient
+                                  ? "bg-green-50 text-green-600"
+                                  : "bg-amber-50 text-amber-600"
+                              }`}
+                            >
+                              {ref.assign_to_patient ? "Assigned" : "Pending"}
+                            </span>
+                            <ChevronRight
+                              size={14}
+                              className="text-[#6B7280]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <SeeMoreButton
+                  visible={hasMoreReferrals}
+                  fetching={referralsFetching}
+                  onClick={() =>
+                    setReferralsLimit((prev) => prev + HISTORY_PAGE_SIZE)
+                  }
+                />
               </div>
             )}
-          </div> */}
+          </div>
         </div>
       </div>
 
@@ -629,6 +796,16 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
         open={!!investigationResultPreview}
         onOpenChange={(open) => {
           if (!open) setInvestigationResultPreview(null);
+        }}
+      />
+
+      <ReferralHistoryPreviewSheet
+        patientId={patientId}
+        referralId={previewReferralId}
+        fallback={previewReferral ?? null}
+        open={!!previewReferralId}
+        onOpenChange={(open) => {
+          if (!open) setPreviewReferralId(null);
         }}
       />
     </div>

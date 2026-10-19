@@ -15,7 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { cn } from "@/lib/utils";
+import { cn, getApiErrorMessage } from "@/lib/utils";
 import Spinner from "@/shared/components/spinner.component";
 import {
   getDoctorAvailabilitySlotReq,
@@ -197,22 +197,8 @@ export default function DoctorAvailabilityTab() {
       form.reset(form.getValues());
       queryClient.setQueryData(queryKeys.doctorAvailability, response);
     },
-    onError: (error: unknown) => {
-      let errorMsg = "Failed to update availability";
-      if (error instanceof Error) {
-        errorMsg = error.message;
-      }
-      const err = error as {
-        response?: { data?: { message?: string | string[] } };
-      };
-
-      const messageData = err?.response?.data?.message;
-      if (Array.isArray(messageData)) {
-        errorMsg = messageData[0];
-      } else if (typeof messageData === "string") {
-        errorMsg = messageData;
-      }
-      toast.error(errorMsg);
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to update availability"));
     },
   });
 

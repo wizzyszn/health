@@ -56,7 +56,7 @@ export default function FeedbackModal({
     event.preventDefault();
 
     if (!feedback.trim()) {
-      toast.error("Please enter your feedback before submitting.");
+      toast.warning("Please enter your feedback before submitting.");
       return;
     }
 

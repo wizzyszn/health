@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createInvestigationListForConsultationReq,
   deleteInvestigationListForConsultationReq,
@@ -126,6 +127,15 @@ const TEST_OPTIONS_BY_CATEGORY: Record<string, string[]> = {
 
 const PRIORITY_OPTIONS = ["Routine", "Urgent", "STAT"];
 
+const SPECIMEN_OPTIONS = [
+  "Blood",
+  "Urine",
+  "Sputum",
+  "CSF",
+  "Swab",
+  "Others",
+] as const;
+
 const CATEGORY_ICONS: Record<string, ReactNode> = {
   Hematological: <Droplet className="w-3.5 h-3.5" />,
   Microbiological: <Microscope className="w-3.5 h-3.5" />,
@@ -146,10 +156,10 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function getDefaultSpecimen(category: string, test: string): string {
   const t = test.toLowerCase();
-  if (t.includes("urine")) return "Midstream Urine";
-  if (t.includes("stool")) return "Stool sample";
-  if (t.includes("sputum")) return "Sputum sample";
-  if (t.includes("semen")) return "Semen sample";
+  if (t.includes("urine")) return "Urine";
+  if (t.includes("stool")) return "Others";
+  if (t.includes("sputum")) return "Sputum";
+  if (t.includes("semen")) return "Others";
   if (
     t.includes("smear") ||
     t.includes("esr") ||
@@ -160,9 +170,9 @@ function getDefaultSpecimen(category: string, test: string): string {
     t.includes("aptt") ||
     t.includes("blood group")
   ) {
-    return "Whole Blood (EDTA)";
+    return "Blood";
   }
-  if (t.includes("culture")) return "Blood / Fluid in culture media";
+  if (t.includes("culture")) return "Blood";
   if (
     t.includes("ecg") ||
     t.includes("x-ray") ||
@@ -174,10 +184,10 @@ function getDefaultSpecimen(category: string, test: string): string {
     t.includes("mammography") ||
     t.includes("dexa")
   ) {
-    return "-";
+    return "Others";
   }
   if (t.includes("troponin") || t.includes("ck-mb") || t.includes("bnp")) {
-    return "Whole Blood (EDTA) or Serum";
+    return "Blood";
   }
   if (
     t.includes("lipid") ||
@@ -197,12 +207,12 @@ function getDefaultSpecimen(category: string, test: string): string {
     t.includes("hbsag") ||
     t.includes("hiv")
   ) {
-    return "Whole Blood (SST)";
+    return "Blood";
   }
-  if (category === "Hematological") return "Whole Blood (EDTA)";
-  if (category === "Biochemistry") return "Whole Blood (SST)";
-  if (category === "Radiological") return "-";
-  return "Whole Blood (SST)";
+  if (category === "Hematological") return "Blood";
+  if (category === "Biochemistry") return "Blood";
+  if (category === "Radiological") return "Others";
+  return "Blood";
 }
 
 function applyRowPatch(
@@ -419,16 +429,20 @@ function InvestigationGroupedTable({
                     </td>
 
                     <td className="py-3 px-2 align-top">
-                      <input
-                        type="text"
+                      <select
                         value={row.specimen}
-                        placeholder="e.g. Whole Blood (EDTA)"
                         onChange={(e) =>
                           onUpdateRow(rowKey, { specimen: e.target.value })
                         }
                         disabled={disabled || isRemoving || isSending}
                         className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs focus:border-[#5164E8] focus:outline-none"
-                      />
+                      >
+                        {SPECIMEN_OPTIONS.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
                     </td>
 
                     <td className="py-3 px-2 align-top">
@@ -586,7 +600,7 @@ export function InvestigationModal({
       invalidateInvestigationQueries();
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete investigation");
+      toast.error(getApiErrorMessage(error, "Failed to delete investigation"));
     },
     onSettled: () => setDeletingId(null),
   });
@@ -735,11 +749,11 @@ export function InvestigationModal({
 
   const validateRow = (row: InvestigationRowData, label: string): boolean => {
     if (!row.test.trim()) {
-      toast.error(`Please enter a test name for ${label}`);
+      toast.warning(`Please enter a test name for ${label}`);
       return false;
     }
     if (!row.category) {
-      toast.error(`Please select a category for ${label}`);
+      toast.warning(`Please select a category for ${label}`);
       return false;
     }
     return true;
@@ -767,8 +781,10 @@ export function InvestigationModal({
       invalidateInvestigationQueries();
     } catch (error) {
       toast.error(
-        (error as Error).message ||
+        getApiErrorMessage(
+          error,
           "Failed to send investigation to patient. Please try again.",
+        ),
       );
     } finally {
       setSendingId(null);
@@ -797,8 +813,10 @@ export function InvestigationModal({
       invalidateInvestigationQueries();
     } catch (error) {
       toast.error(
-        (error as Error).message ||
+        getApiErrorMessage(
+          error,
           "Failed to send investigation to patient. Please try again.",
+        ),
       );
     } finally {
       setSendingId(null);
@@ -807,7 +825,7 @@ export function InvestigationModal({
 
   const handleSubmit = async (assignToPatient: boolean) => {
     if (!consultationId) {
-      toast.error("Consultation ID is missing. Please try again.");
+      toast.warning("Consultation ID is missing. Please try again.");
       return;
     }
 
@@ -831,7 +849,7 @@ export function InvestigationModal({
       existingInvestigations.length === 0 &&
       touchedNewInvestigations.length === 0
     ) {
-      toast.error("Please add at least one investigation.");
+      toast.warning("Please add at least one investigation.");
       return;
     }
 
@@ -880,8 +898,10 @@ export function InvestigationModal({
       invalidateInvestigationQueries();
     } catch (error) {
       toast.error(
-        (error as Error).message ||
+        getApiErrorMessage(
+          error,
           "Failed to save investigations. Please try again.",
+        ),
       );
     } finally {
       if (assignToPatient) {

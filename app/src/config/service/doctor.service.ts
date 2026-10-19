@@ -29,7 +29,7 @@ type DoctorAppointmentProfileSnapshot = {
   gender: string;
   marital_status: string;
   occupation: string;
-  present_complaint: string;
+  reason_for_appointment: string;
 };
 
 type DoctorAppointmentPatient = {
@@ -380,7 +380,7 @@ export const getDoctorAppointmentsReq = (param: {
           gender: string;
           marital_status: string;
           occupation: string;
-          present_complaint: string;
+          reason_for_appointment: string;
         };
         consultation_id?: string;
         rescheduled_from_appointment_id?: string;
@@ -433,7 +433,7 @@ export const getSingleDoctorAppointmentReq = (appointmentId: string) => {
         gender: string;
         marital_status: string;
         occupation: string;
-        present_complaint: string;
+        reason_for_appointment: string;
       };
       consultation_id?: {
         _id: string;
@@ -486,7 +486,7 @@ export const getAllDoctorAppointmentsReq = () => {
           gender: string;
           marital_status: string;
           occupation: string;
-          present_complaint: string;
+          reason_for_appointment: string;
         };
         consultation_id: {
           _id: string;
@@ -1341,7 +1341,7 @@ export const deletePhysicalExamForConsultationReq = (
 
 export const createHistoryTakingForConsultationReq = (
   data: {
-    present_complaint: string;
+    reason_for_appointment: string;
     history_of_presenting_complaint: string;
     past_medical_surgical_history: string;
     medication_history: string;
@@ -1364,7 +1364,7 @@ export const createHistoryTakingForConsultationReq = (
   return requestHandler<
     GeneralReturnInt<{
       _id: string;
-      present_complaint: string;
+      reason_for_appointment: string;
       history_of_presenting_complaint: string;
       past_medical_surgical_history: string;
       medication_history: string;
@@ -1392,7 +1392,7 @@ export const getHistoryTakingForConsultationReq = (id: string) => {
   return requestHandler<
     GeneralReturnInt<{
       _id: string;
-      present_complaint: string;
+      reason_for_appointment: string;
       history_of_presenting_complaint: string;
       past_medical_surgical_history: string;
       medication_history: string;
@@ -1413,7 +1413,7 @@ export const getHistoryTakingForConsultationReq = (id: string) => {
 
 export const updateHistoryTakingForConsultationReq = (
   data: {
-    present_complaint?: string;
+    reason_for_appointment?: string;
     history_of_presenting_complaint?: string;
     past_medical_surgical_history?: string;
     medication_history?: string;
@@ -1436,7 +1436,7 @@ export const updateHistoryTakingForConsultationReq = (
   return requestHandler<
     GeneralReturnInt<{
       _id: string;
-      present_complaint: string;
+      reason_for_appointment: string;
       history_of_presenting_complaint: string;
       past_medical_surgical_history: string;
       medication_history: string;
@@ -1768,11 +1768,18 @@ export const getPatientMedicalHistoryReq = (patient_id: string) => {
   );
 };
 
-export const getPatientConsultationHistoryreq = (id: string) => {
+export const getPatientConsultationHistoryreq = (
+  id: string,
+  params?: { limit?: string },
+) => {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", params.limit);
+
   const url = urlGenerator(
     "doctors",
     `consultations/patients/${id}/history/consultations`,
     false,
+    searchParams.toString() || undefined,
   );
 
   return requestHandler<
@@ -1807,11 +1814,18 @@ export const getPatientConsultationHistoryreq = (id: string) => {
   >(url, options("GET", null, true));
 };
 
-export const getPatientMedicationHistoryreq = (id: string) => {
+export const getPatientMedicationHistoryreq = (
+  id: string,
+  params?: { limit?: string },
+) => {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", params.limit);
+
   const url = urlGenerator(
     "doctors",
     `consultations/patients/${id}/history/medications`,
     false,
+    searchParams.toString() || undefined,
   );
 
   return requestHandler<
@@ -1946,7 +1960,13 @@ export const getPatientMedicationDiagnosisreq = (id: string) => {
 export const createReferralForConsultationReq = (
   consultation_id: string,
   data: {
-    specialist_name: string;
+    /**
+     * Optional, matching `CreateReferralDto` on the backend (`@IsOptional()`)
+     * and the form schema, which lets a referral name only a specialty or a
+     * hospital. Declaring it required — as the response shape legitimately
+     * does — made every payload built from form values unassignable.
+     */
+    specialist_name?: string;
     specialty?: string;
     hospital: string;
     hospital_address?: string[];
@@ -2010,6 +2030,78 @@ export const listReferralsForConsultationReq = (consultation_id: string) => {
       }>
     >
   >(url, options("GET", null, true));
+};
+
+export interface PatientReferralHistoryConsultation {
+  _id: string;
+  title: string;
+  type: string;
+  consoltation_for?: string;
+  status: string;
+  session_number?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientReferralHistoryDoctor {
+  _id: string;
+  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  specializations?: string[];
+  profile_picture_url?: string | null;
+}
+
+export interface PatientReferralHistoryRecord {
+  _id: string;
+  specialist_name: string;
+  specialty?: string | null;
+  hospital: string;
+  hospital_address?: string[];
+  attachment_investigation_ids?: string[];
+  current_medications?: string | null;
+  referral_details: string;
+  referred_doctor_name?: string;
+  assign_to_patient?: boolean;
+  consultation_id: string | PatientReferralHistoryConsultation | null;
+  user_id: string | null;
+  doctor_id: string | PatientReferralHistoryDoctor;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getPatientReferralHistoryreq = (
+  patientId: string,
+  params?: { limit?: string },
+) => {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", params.limit);
+
+  const url = urlGenerator(
+    "doctors",
+    `consultations/patients/${patientId}/history/referrals`,
+    false,
+    searchParams.toString() || undefined,
+  );
+  return requestHandler<GeneralReturnInt<PatientReferralHistoryRecord[]>>(
+    url,
+    options("GET", null, true),
+  );
+};
+
+export const getPatientReferralHistoryRecordReq = (
+  patientId: string,
+  referralId: string,
+) => {
+  const url = urlGenerator(
+    "doctors",
+    `consultations/patients/${patientId}/history/referrals/${referralId}`,
+    false,
+  );
+  return requestHandler<GeneralReturnInt<PatientReferralHistoryRecord>>(
+    url,
+    options("GET", null, true),
+  );
 };
 
 export const getReferralRecordReq = (referral_id: string) => {

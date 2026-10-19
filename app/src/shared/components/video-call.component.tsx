@@ -186,6 +186,33 @@ function RemoteAudioSink({
   return <audio ref={audioRef} autoPlay playsInline />;
 }
 
+/**
+ * Marks a remote tile whose microphone is off. Without this the far side sees
+ * a live-looking tile and hears nothing, which is indistinguishable from a
+ * call that failed to connect — the exact misreading this exists to prevent.
+ * Never shown for the local participant, whose own state is reported by the
+ * muted hint instead.
+ */
+function ParticipantMuteBadge({
+  visible,
+  compact = false,
+}: {
+  visible: boolean;
+  compact?: boolean;
+}) {
+  if (!visible) return null;
+
+  return (
+    <span
+      title="Microphone muted"
+      className="flex shrink-0 items-center gap-1 rounded-full bg-red-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white"
+    >
+      <MicOff className="size-3" aria-hidden="true" />
+      {!compact && <span>Muted</span>}
+    </span>
+  );
+}
+
 interface LeaveConfirmDialogProps {
   open: boolean;
   /** True when the local user initiated leave (vs. being disconnected). */
@@ -233,7 +260,12 @@ interface MediaMutedChipProps {
   isCameraEnabled: boolean;
 }
 
-/** Compact mic/cam muted indicators — sits beside the time-left reader. */
+/**
+ * Compact self-state indicators — sits beside the time-left reader in both the
+ * expanded header and the PIP top bar. Spells out "Muted" rather than relying
+ * on the icon alone: in the PIP the bottom control bar is hidden until hover,
+ * so this is the only thing telling a muted user why they are not being heard.
+ */
 function MediaMutedChip({
   isMicrophoneEnabled,
   isCameraEnabled,
@@ -244,7 +276,13 @@ function MediaMutedChip({
   return (
     <span className="flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-0.5">
       {!isMicrophoneEnabled && (
-        <MicOff className="size-3 text-red-300" aria-label="Microphone muted" />
+        <>
+          <MicOff
+            className="size-3 text-red-300"
+            aria-label="Microphone muted"
+          />
+          <span className="text-[10px] font-medium text-red-200">Muted</span>
+        </>
       )}
       {!isCameraEnabled && (
         <VideoOff className="size-3 text-red-300" aria-label="Camera off" />
@@ -388,6 +426,14 @@ function VideoCallInner({
 
           {/* Main Video Area */}
           <div className="flex-1 bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100 flex items-center justify-center relative overflow-hidden">
+            {/* Self-state prompt. A muted user hears everyone else perfectly,
+                so the call feels fine from their side — nothing else on screen
+                tells them the other participant cannot hear them. */}
+            {isJoined && !isMicrophoneEnabled && (
+              <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-red-500/95 px-3 py-1.5 text-[11px] font-medium text-white shadow-lg sm:text-xs">
+                You're muted — tap the mic to speak
+              </div>
+            )}
             {mainParticipant ? (
               <ParticipantVideo
                 participant={mainParticipant}
@@ -404,10 +450,16 @@ function VideoCallInner({
 
             {mainParticipant && (
               <div className="absolute bottom-4 left-1/2 z-20 w-[calc(100%-2rem)] max-w-xs -translate-x-1/2 sm:bottom-6">
-                <div className="text-white bg-gray-900/60 backdrop-blur-md px-4 py-2 sm:px-6 rounded-full border border-white/10 shadow-xl text-center">
+                <div className="flex items-center justify-center gap-2 text-white bg-gray-900/60 backdrop-blur-md px-4 py-2 sm:px-6 rounded-full border border-white/10 shadow-xl text-center">
                   <span className="block truncate text-xs sm:text-sm font-medium">
                     {mainParticipant.displayName}
                   </span>
+                  <ParticipantMuteBadge
+                    visible={
+                      !mainParticipant.isLocal &&
+                      !mainParticipant.isAudioEnabled
+                    }
+                  />
                 </div>
               </div>
             )}
@@ -499,10 +551,18 @@ function VideoCallInner({
           </div>
         )}
         {mainParticipant && (
-          <div className="absolute bottom-2 left-2 text-white bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-md z-20 pointer-events-none">
+          <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 text-white bg-gray-900/50 backdrop-blur-sm px-2 py-1 rounded-md pointer-events-none">
             <span className="text-[10px] font-medium">
               {mainParticipant.displayName}
             </span>
+            {/* Icon-only here: the PIP is too narrow for the word, and its
+                bottom control bar is hidden until hover. */}
+            <ParticipantMuteBadge
+              compact
+              visible={
+                !mainParticipant.isLocal && !mainParticipant.isAudioEnabled
+              }
+            />
           </div>
         )}
       </div>
@@ -774,7 +834,7 @@ export function VideoCall({
                   the patient re-check manually (spec §4). */}
               <p className="mt-2 max-w-[26ch] text-xs text-gray-500">
                 {errorMessage ||
-                  "Your doctor hasn't opened the session yet. Please wait."}
+                  "The consultation hasn't started yet. Please wait for the doctor to begin."}
               </p>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                 {onRetry && (

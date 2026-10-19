@@ -164,19 +164,19 @@ const ConfirmAppointment = ({
           Complaint
         </p>
         <p className="max-h-[120px] overflow-y-auto pr-1 text-sm leading-relaxed text-muted-foreground custom-scrollbar">
-          {data.complaint ||
+          {data.reasonForAppointment ||
             "General Checkup-Patient reported mild headaches and fatigue"}
         </p>
       </motion.div>
 
-      {data.complaintBrief && (
+      {data.complaintDetails && (
         <motion.div variants={itemVariants} className="space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Complaint Brief
+            Complaint Details
           </p>
           <div className="max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
             <ReactQuill
-              value={data.complaintBrief}
+              value={data.complaintDetails}
               readOnly
               theme="bubble"
               className="text-sm text-muted-foreground [&_.ql-editor]:p-0"
@@ -193,7 +193,7 @@ const ConfirmAppointment = ({
           By clicking {isReschedule ? "reschedule" : "confirm booking"}, you've
           agreed to{" "}
           <span className="font-medium text-foreground">
-            MediApp's Consultant's terms
+            Carelexa's Consultant's terms
           </span>
         </p>
         <div className="flex gap-3">

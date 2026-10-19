@@ -3,6 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createPhysicalExamForConsultationReq,
   updatePhysicalExamForConsultationReq,
@@ -229,9 +230,7 @@ function PhysicalExamInner({
       } catch (error) {
         if (!silent) {
           toast.error(
-            error instanceof Error
-              ? error.message
-              : "Failed to save physical exam",
+            getApiErrorMessage(error, "Failed to save physical exam"),
           );
         }
         return false;

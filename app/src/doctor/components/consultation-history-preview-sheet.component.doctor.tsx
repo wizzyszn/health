@@ -163,8 +163,8 @@ function ConsultationDetailsSummary({
 
   const hasVisitDetails =
     appointment?.reason_for_visit ||
-    appointment?.complaint_brief ||
-    bookingSnapshot?.present_complaint ||
+    appointment?.complaint_details ||
+    bookingSnapshot?.reason_for_appointment ||
     appointment?.allergies?.length ||
     appointment?.Medical_conditions?.length;
 
@@ -273,12 +273,12 @@ function ConsultationDetailsSummary({
               value={appointment?.reason_for_visit}
             />
             <InfoItem
-              label="Present Complaint"
-              value={bookingSnapshot?.present_complaint}
+              label="Reason for Appointment (visit)"
+              value={bookingSnapshot?.reason_for_appointment}
             />
             <InfoItem
-              label="Complaint Brief"
-              value={appointment?.complaint_brief}
+              label="Complaint Details"
+              value={appointment?.complaint_details}
             />
             <InfoItem
               label="Allergies"

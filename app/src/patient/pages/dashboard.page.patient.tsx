@@ -73,7 +73,7 @@ function CopyableMRN({ mrn }: { mrn: string }) {
       toast.success("MRN copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy MRN");
+      toast.warning("Failed to copy MRN");
     }
   };
 

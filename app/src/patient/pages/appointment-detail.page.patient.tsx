@@ -35,8 +35,6 @@ import {
   formatZonedDate,
   formatZonedTimeRange,
   isScheduledTimeError,
-  extractScheduledTimeFromError,
-  formatScheduledTimeMessage,
   getApiErrorMessage,
 } from "@/lib/utils";
 import {
@@ -176,15 +174,14 @@ const AppointmentDetails = () => {
     (data?.data?.consultation_id?.type as ConsultationType) || "VIDEO";
   const isVideoConsultation = consultationType === "VIDEO";
 
-  // Spec §4: bounded backoff only for the room-not-open-yet 400; no
-  // background polling while the patient waits.
+  // No automatic retries — a clean server error is shown once and the
+  // patient explicitly clicks Join to retry. Retrying on a 400 (too early /
+  // room not open) would hammer the endpoint and confuse the user.
   const videoSessionQuery = useQuery({
     queryKey: ["patient-video-session", consultationId],
     queryFn: () => getPatientVideoSessionReq(consultationId),
     enabled: Boolean(consultationId) && showVideo && isVideoConsultation,
-    retry: (failureCount: number, error: unknown) =>
-      failureCount < 3 && isRoomNotOpenYet(error),
-    retryDelay: (attempt: number) => Math.min(1500 * 2 ** attempt, 5000),
+    retry: false,
     staleTime: 60_000,
   });
 
@@ -194,11 +191,7 @@ const AppointmentDetails = () => {
   );
 
   // Check for scheduled time error (appointment time hasn't arrived yet)
-  const scheduledTimeError = isScheduledTimeError(videoSessionQuery.error);
-  const scheduledTime = extractScheduledTimeFromError(videoSessionQuery.error);
-  const scheduledTimeMessage = scheduledTime
-    ? formatScheduledTimeMessage(scheduledTime)
-    : null;
+  // — recomputed inside handleJoin from a freshly refetched error.
 
   const isWaitingForDoctor = isRoomNotOpenYet(videoSessionQuery.error);
 
@@ -218,7 +211,7 @@ const AppointmentDetails = () => {
       setCancelReason("");
     },
     onError: (error: RejectedPayload) => {
-      toast.error(
+      toast.warning(
         error.message || "Failed to cancel appointment. Please try again.",
       );
     },
@@ -269,10 +262,13 @@ const AppointmentDetails = () => {
     appointment.doctor_id?.profile_picture_url ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${appointment.doctor_id?.first_name || "Doctor"}`;
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
+    // Refresh the session token so we evaluate the current join eligibility.
+    await videoSessionQuery.refetch();
+
     // Window ENDED — show the backend's own copy (spec §6: safe to display).
     if (videoSessionQuery.error && isJoinWindowEnded(videoSessionQuery.error)) {
-      toast.error(
+      toast.warning(
         getApiErrorMessage(
           videoSessionQuery.error,
           "This appointment window has already ended.",
@@ -280,14 +276,29 @@ const AppointmentDetails = () => {
       );
       return;
     }
-    // Too EARLY — point the patient to when joins open (spec §5: start −10 min).
-    if (scheduledTimeError && scheduledTimeMessage) {
-      toast.error(
-        `This appointment starts at ${scheduledTimeMessage}. You can join 10 minutes before then.`,
+    // Too EARLY — surface the server's own copy verbatim (spec §5).
+    // Re-check from the freshly fetched error (stale render values won't do).
+    if (isScheduledTimeError(videoSessionQuery.error)) {
+      toast.warning(
+        getApiErrorMessage(
+          videoSessionQuery.error,
+          "Unable to join at this time.",
+        ),
       );
       return;
     }
-    if (isVideoConsultation && canJoinVideo) {
+    // Room not open yet (doctor hasn't started) — surface server copy, keep
+    // the Join button enabled so the patient can retry after the doctor starts.
+    if (videoSessionQuery.error && isRoomNotOpenYet(videoSessionQuery.error)) {
+      toast.warning(
+        getApiErrorMessage(
+          videoSessionQuery.error,
+          "The consultation hasn't started yet. Please wait.",
+        ),
+      );
+      return;
+    }
+    if (isVideoConsultation && canJoinVideo && !videoSessionQuery.isError) {
       setShowVideo(true);
     }
   };
@@ -563,12 +574,12 @@ const AppointmentDetails = () => {
                 onClick={handleJoin}
                 disabled={
                   showVideo ||
-                  scheduledTimeError ||
+                  videoSessionQuery.isLoading ||
                   (appointment.status !== "CONFIRMED" &&
                     appointment.status !== "ACTIVE")
                 }
               >
-                {showVideo && videoSessionQuery.isLoading ? (
+                {videoSessionQuery.isLoading && !showVideo ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <ActionIcon className="w-4 h-4" />

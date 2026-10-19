@@ -30,13 +30,22 @@ const buildMediaStream = (track?: MediaStreamTrack | null) => {
   return new MediaStream([track]);
 };
 
-/** Media defaults per role — doctors join ready to examine; patients opt in. */
-const DEFAULT_MEDIA_BY_ROLE: Record<
+/**
+ * Media defaults per role.
+ *
+ * Both roles join with the microphone live. Patients used to join muted, which
+ * meant a patient who never found the mic button published no audio at all —
+ * and because the remote mute state was not rendered on the other side's
+ * tiles, the only explanation left to the doctor was that the call was broken.
+ * The camera stays opt-in for patients (joining a call to talk does not imply
+ * wanting to be seen), but being audible should not require finding a button.
+ */
+export const DEFAULT_MEDIA_BY_ROLE: Record<
   DailyTelehealthRole,
   { startAudioOff: boolean; startVideoOff: boolean }
 > = {
   doctor: { startAudioOff: false, startVideoOff: false },
-  patient: { startAudioOff: true, startVideoOff: true },
+  patient: { startAudioOff: false, startVideoOff: true },
 };
 
 /** Auto-rejoin budget after an unexpected disconnect or fatal meeting error. */
@@ -82,7 +91,7 @@ export function useDailyVideoRoom(
       sessionStartSentRef.current = null; // allow retry on next emit
       if (isSessionAlreadyClosed(error)) {
         // HTTP 409 — consultation COMPLETED/CANCELED; can't be reopened.
-        toast.error(
+        toast.warning(
           "This consultation is already completed and can't be reopened.",
         );
       } else {

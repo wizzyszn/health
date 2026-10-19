@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createHistoryTakingForConsultationReq,
   updateHistoryTakingForConsultationReq,
@@ -24,7 +25,7 @@ interface HistoryTakingFormProps {
 
 type HistoryTakingData = {
   _id?: string;
-  present_complaint: string;
+  reason_for_appointment: string;
   history_of_presenting_complaint: string;
   past_medical_surgical_history: string;
   medication_history: string;
@@ -103,7 +104,7 @@ function HistoryTakingInner({
       }
     }
     return {
-      present_complaint: existingData?.present_complaint ?? "",
+      reason_for_appointment: existingData?.reason_for_appointment ?? "",
       history_of_presenting_complaint:
         existingData?.history_of_presenting_complaint ?? "",
       past_medical_surgical_history:
@@ -146,7 +147,7 @@ function HistoryTakingInner({
     }
 
     setFormData({
-      present_complaint: existingData?.present_complaint ?? "",
+      reason_for_appointment: existingData?.reason_for_appointment ?? "",
       history_of_presenting_complaint:
         existingData?.history_of_presenting_complaint ?? "",
       past_medical_surgical_history:
@@ -254,9 +255,7 @@ function HistoryTakingInner({
       } catch (error) {
         if (!silent) {
           toast.error(
-            error instanceof Error
-              ? error.message
-              : "Failed to save history taking",
+            getApiErrorMessage(error, "Failed to save history taking"),
           );
         }
         return false;
@@ -312,10 +311,12 @@ function HistoryTakingInner({
       )}
       <div className="space-y-5">
         <div>
-          <Label className="block text-[#374151] mb-2">Present Complaint</Label>
+          <Label className="block text-[#374151] mb-2">
+            Reason for Appointment (visit)
+          </Label>
           <Textarea
-            name="present_complaint"
-            value={formData.present_complaint}
+            name="reason_for_appointment"
+            value={formData.reason_for_appointment}
             onChange={handleChange}
             className={`min-h-[100px] !text-xs ${loadingFieldClass}`}
             placeholder="E.g., Recurrent headache for 3 weeks..."

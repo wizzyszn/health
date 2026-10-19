@@ -6,13 +6,18 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   getAConsultation,
+  getConsultationSummaryReq,
   getGroupedMedicationsForConsultationsReq,
   getInvestigationsForConsultationReq,
   getPatientProfileReq,
   listReferralsForPatientConsultationReq,
   uploadInvestigationResultImageReq,
 } from "@/config/service/patient.service";
-import { formatZonedDate, formatZonedTimeRange } from "@/lib/utils";
+import {
+  formatZonedDate,
+  formatZonedTimeRange,
+  getApiErrorMessage,
+} from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   CONSULTATION_CONFIG,
@@ -25,6 +30,7 @@ import { ConsultationActionCenter } from "@/patient/components/consultation-deta
 import { ConsultationInvestigationTab } from "@/patient/components/consultation-details/consultation-investigation-tab.component.patient";
 import { ConsultationMedicationTab } from "@/patient/components/consultation-details/consultation-medication-tab.component.patient";
 import { ConsultationReferralsTab } from "@/patient/components/consultation-details/consultation-referrals-tab.component.patient";
+import { ConsultationSummaryTab } from "@/patient/components/consultation-details/consultation-summary-tab.component.patient";
 import { generateConsultationInvestigationPdf } from "@/patient/components/consultation-details/generate-consultation-investigation-pdf.patient";
 import { generateConsultationMedicationPdf } from "@/patient/components/consultation-details/generate-consultation-medication-pdf.patient";
 import { generateReferralLetterPdf } from "@/patient/components/referral/generate-referral-letter-pdf.patient";
@@ -37,6 +43,8 @@ import { RootState } from "@/config/stores/store";
 import { PatientConsultationDetailSkeleton } from "@/shared/components/patient-record-skeletons.component.shared";
 import SEO from "@/shared/components/seo.component";
 
+type ConsultationTab = "summary" | "investigation" | "medication" | "referrals";
+
 function ViewConsultationDetails() {
   const navigate = useNavigate();
   const params = useParams();
@@ -46,9 +54,9 @@ function ViewConsultationDetails() {
   const [uploadingInvestigationId, setUploadingInvestigationId] = useState<
     string | null
   >(null);
-  const [activeTab, setActiveTab] = useState<
-    "investigation" | "medication" | "referrals"
-  >("investigation");
+  // Summary leads: it is the one tab that answers "what came out of this
+  // consultation?" without the patient having to open three others first.
+  const [activeTab, setActiveTab] = useState<ConsultationTab>("summary");
   const userTimezone = useSelector((state: RootState) => state.auth.timezone);
 
   const { data, isLoading, isError } = useQuery({
@@ -90,6 +98,16 @@ function ViewConsultationDetails() {
   const { data: profileData } = useQuery({
     queryKey: queryKeys.patientProfile,
     queryFn: () => getPatientProfileReq(),
+  });
+
+  const {
+    data: summaryData,
+    isLoading: isSummaryLoading,
+    isError: isSummaryError,
+  } = useQuery({
+    queryKey: ["consultation-summary", consultationId],
+    queryFn: () => getConsultationSummaryReq(consultationId),
+    enabled: !!consultationId,
   });
 
   if (isLoading) {
@@ -143,9 +161,7 @@ function ViewConsultationDetails() {
     0,
   );
 
-  const openTabAndScroll = (
-    tab: "investigation" | "medication" | "referrals",
-  ) => {
+  const openTabAndScroll = (tab: ConsultationTab) => {
     setActiveTab(tab);
     tabsSectionRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -169,7 +185,9 @@ function ViewConsultationDetails() {
       ]);
     } catch (error) {
       console.error(error);
-      toast.error("Failed to upload investigation result.");
+      toast.error(
+        getApiErrorMessage(error, "Failed to upload investigation result."),
+      );
     } finally {
       setUploadingInvestigationId(null);
     }
@@ -210,7 +228,7 @@ function ViewConsultationDetails() {
 
   const handleDownloadReferralPDF = async (referral: ReferralItem) => {
     if (!profile) {
-      toast.error("Your profile is still loading — please try again.");
+      toast.warning("Your profile is still loading — please try again.");
       return;
     }
     try {
@@ -335,12 +353,16 @@ function ViewConsultationDetails() {
       >
         <Tabs
           value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value as "investigation" | "medication" | "referrals")
-          }
+          onValueChange={(value) => setActiveTab(value as ConsultationTab)}
         >
           <div className="flex items-center justify-between px-2 md:px-4">
             <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0 overflow-x-auto custom-scrollbar">
+              <TabsTrigger
+                value="summary"
+                className="rounded-none border-b-[3px] border-transparent px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
+              >
+                Summary
+              </TabsTrigger>
               <TabsTrigger
                 value="investigation"
                 className="rounded-none border-b-[3px] border-transparent px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
@@ -363,6 +385,17 @@ function ViewConsultationDetails() {
           </div>
 
           <div className="py-2 md:py-[12px] px-3 md:px-[16px]">
+            <TabsContent value="summary" className="mt-0">
+              <ConsultationSummaryTab
+                isLoading={isSummaryLoading}
+                isError={isSummaryError}
+                summary={summaryData?.data}
+                onOpenMedication={() => openTabAndScroll("medication")}
+                onOpenInvestigation={() => openTabAndScroll("investigation")}
+                onOpenReferral={() => openTabAndScroll("referrals")}
+              />
+            </TabsContent>
+
             <TabsContent value="investigation" className="mt-0">
               <ConsultationInvestigationTab
                 isLoading={isInvestigationsLoading}

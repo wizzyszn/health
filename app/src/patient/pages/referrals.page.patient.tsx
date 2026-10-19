@@ -80,7 +80,7 @@ export default function ReferralsPage() {
 
   const handleDownloadPDF = async (group: ReferralGroup) => {
     if (!profile) {
-      toast.error("Your profile is still loading — please try again.");
+      toast.warning("Your profile is still loading — please try again.");
       return;
     }
     try {

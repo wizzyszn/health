@@ -3,6 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createTreatmentPlanForConsultationReq,
   updateTreatmentPlanForConsultationReq,
@@ -184,9 +185,7 @@ function TreatmentPlanInner({
       } catch (error) {
         if (!silent) {
           toast.error(
-            error instanceof Error
-              ? error.message
-              : "Failed to save treatment plan",
+            getApiErrorMessage(error, "Failed to save treatment plan"),
           );
         }
         return false;

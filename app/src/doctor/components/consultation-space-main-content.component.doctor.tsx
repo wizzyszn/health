@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { FileText, TestTube, Pill, Send, Loader2, Rocket } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -45,16 +46,11 @@ export function ConsultationMainContent({
   consultationId,
   mode = "edit",
   patientId,
-  patientMedical,
 }: {
   consultationId?: string;
   mode?: ConsultationMode;
   /** Consultation's patient id — enables the referral attachments selector. */
   patientId?: string;
-  patientMedical?: {
-    allergies: string[];
-    previousMedicalConditions: string[];
-  };
 }) {
   const [editingTab, setEditingTab] = useState<string | null>("history");
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -78,7 +74,9 @@ export function ConsultationMainContent({
       },
       onError: (error) => {
         console.error(error);
-        toast.error("Failed to finalize consultation");
+        toast.error(
+          getApiErrorMessage(error, "Failed to finalize consultation"),
+        );
       },
     },
   );
@@ -378,7 +376,6 @@ export function ConsultationMainContent({
           onClose={() => setActiveModal(null)}
           consultationId={consultationId ?? ""}
           patientId={patientId}
-          patientMedical={patientMedical}
         />
       )}
       {activeModal === "rebook" && (

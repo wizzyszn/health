@@ -108,7 +108,7 @@ function ForgotPasswordForm() {
       setResendCooldown(60);
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to initiate password reset");
+      toast.warning(error.message || "Failed to initiate password reset");
     },
   });
 
@@ -131,7 +131,7 @@ function ForgotPasswordForm() {
       setStep("password");
     },
     onError: (error) => {
-      toast.error(error.message || "Invalid OTP");
+      toast.warning(error.message || "Invalid OTP");
     },
   });
 
@@ -146,7 +146,7 @@ function ForgotPasswordForm() {
       setResendCooldown(60);
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to resend OTP");
+      toast.warning(error.message || "Failed to resend OTP");
     },
   });
 
@@ -163,7 +163,7 @@ function ForgotPasswordForm() {
       setShowSuccess(true);
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to reset password");
+      toast.warning(error.message || "Failed to reset password");
     },
   });
 

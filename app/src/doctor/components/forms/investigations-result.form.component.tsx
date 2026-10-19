@@ -3,6 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createInvestigationForConsultationReq,
   updateInvestigationForConsultationReq,
@@ -218,9 +219,7 @@ function InvestigationResultsInner({
       } catch (error) {
         if (!silent) {
           toast.error(
-            error instanceof Error
-              ? error.message
-              : "Failed to save investigation results",
+            getApiErrorMessage(error, "Failed to save investigation results"),
           );
         }
         return false;

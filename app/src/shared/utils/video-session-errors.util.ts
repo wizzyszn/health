@@ -10,7 +10,7 @@ import { asApiError } from "@/lib/api-error";
  * patient as-is (spec §3).
  */
 export const ROOM_NOT_OPEN_MESSAGE =
-  "Doctor hasn't opened the session yet. Please wait.";
+  "The consultation hasn't started yet. Please wait for the doctor to begin.";
 
 /** Extract the most user-relevant message from any thrown value. */
 function rawMessage(error: unknown): string {
@@ -23,18 +23,20 @@ function rawMessage(error: unknown): string {
 
 /**
  * HTTP 400 — patient requested a token before the doctor opened the room
- * (patient token route only). The client may retry briefly with backoff;
- * see shouldRetryTokenFetch.
- *
- * Matches on the backend's fixed copy, with an httpStatus guard when the
- * structured ApiError is available so unrelated 400s don't false-positive.
+ * (patient token route only). Matches on the backend's authored copy so
+ * unrelated 400s don't false-positive.
  */
 export function isRoomNotOpenYet(error: unknown): boolean {
   const apiError = asApiError(error);
   if (apiError?.httpStatus !== undefined && apiError.httpStatus !== 400) {
     return false;
   }
-  return rawMessage(error).includes("opened the session");
+  const message = rawMessage(error);
+  return (
+    message.includes("opened the session") ||
+    message.includes("consultation has not started") ||
+    message.includes("doctor to begin")
+  );
 }
 
 /**

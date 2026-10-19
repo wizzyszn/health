@@ -204,7 +204,7 @@ function DoctorAppointmentDetails() {
       setCancelReason("");
     },
     onError: (error: RejectedPayload) => {
-      toast.error(error.message || "Failed to cancel appointment.");
+      toast.warning(error.message || "Failed to cancel appointment.");
     },
   });
 
@@ -235,7 +235,7 @@ function DoctorAppointmentDetails() {
       setRescheduleDuration(30);
     },
     onError: (error: RejectedPayload) => {
-      toast.error(error.message || "Failed to reschedule appointment.");
+      toast.warning(error.message || "Failed to reschedule appointment.");
     },
   });
 
@@ -250,7 +250,7 @@ function DoctorAppointmentDetails() {
           `/doctor/dashboard/consultations/${consultationIdValue}?join=1&appointmentId=${appointmentId}`,
         );
       } else {
-        toast.error("Could not retrieve consultation ID for this session.");
+        toast.warning("Could not retrieve consultation ID for this session.");
       }
     },
     onError: (error: RejectedPayload) => {
@@ -258,7 +258,7 @@ function DoctorAppointmentDetails() {
       // doctor-facing copy instead of "starts at …" (spec §5/§6: these 400
       // descriptions are written to be shown as-is).
       if (isJoinWindowEnded(error)) {
-        toast.error(
+        toast.warning(
           getApiErrorMessage(
             error,
             "This appointment window has already ended.",
@@ -273,7 +273,7 @@ function DoctorAppointmentDetails() {
         const timeMessage = scheduledTime
           ? formatScheduledTimeMessage(scheduledTime)
           : null;
-        toast.error(
+        toast.warning(
           timeMessage
             ? `This appointment starts at ${timeMessage}. You can join 10 minutes before then.`
             : "This session isn't open yet. Joins open 10 minutes before the scheduled start time.",
@@ -485,19 +485,19 @@ function DoctorAppointmentDetails() {
             </div>
           )}
 
-          {/* Present Complaint */}
-          {appointment.booking_profile_snapshot?.present_complaint && (
+          {/* Reason for Appointment (visit) */}
+          {appointment.booking_profile_snapshot?.reason_for_appointment && (
             <>
               <div className="border-t border-border mb-5 md:mb-6" />
               <div className="mb-5 md:mb-6">
                 <div className="flex items-center gap-2 mb-3">
                   <Info className="w-4 h-4 shrink-0" color="#6C6C6C" />
                   <span className="text-sm font-semibold text-foreground">
-                    Present Complaint
+                    Reason for Appointment (visit)
                   </span>
                 </div>
                 <p className="ml-6 text-sm text-muted-foreground">
-                  {appointment.booking_profile_snapshot.present_complaint}
+                  {appointment.booking_profile_snapshot.reason_for_appointment}
                 </p>
               </div>
             </>

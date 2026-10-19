@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm, useFieldArray, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createMedicationForConsultationReq,
   deleteMedicationRecordReq,
@@ -130,24 +131,23 @@ function mapApiMedicationToRow(
     ReturnType<typeof getMedicationsForConsultation>
   >["data"][number],
 ): MedicationPrescriptionRowValues {
-  const formulary = normalizeFormulary(medication.formulary);
-  const unit = normalizeDoseUnit(medication.unit);
-  const interval = normalizeInterval(medication.interval);
-  const duration_unit = normalizeDurationUnit(medication.duration_unit);
-
-  if (!formulary || !unit || !interval || !duration_unit) {
-    throw new Error(`Invalid medication data for ${medication._id}`);
-  }
-
+  // Use fallback values for any field that doesn't match the frontend enum
+  // options, so that draft prescriptions are never silently dropped from the
+  // pending list. The user can correct invalid values when editing.
   return {
     _id: medication._id,
-    formulary,
+    formulary:
+      normalizeFormulary(medication.formulary) ??
+      MEDICATION_FORMULARY_OPTIONS[0],
     medication: medication.medication ?? "",
-    dose: medication.dose,
-    unit,
-    interval,
-    duration: medication.duration,
-    duration_unit,
+    dose: medication.dose ?? 0,
+    unit: normalizeDoseUnit(medication.unit) ?? MEDICATION_DOSE_UNIT_OPTIONS[0],
+    interval:
+      normalizeInterval(medication.interval) ?? MEDICATION_INTERVAL_OPTIONS[0],
+    duration: medication.duration ?? 0,
+    duration_unit:
+      normalizeDurationUnit(medication.duration_unit) ??
+      MEDICATION_DURATION_UNIT_OPTIONS[0],
     start_date: medication.start_date ?? "",
     order_instruction: medication.order_instruction ?? "",
   };
@@ -514,9 +514,9 @@ export function MedicationModal({
 }: MedicationModalProps) {
   const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const pendingSyncedRef = useRef(false);
 
   const form = useForm<MedicationPrescriptionModalValues>({
     resolver: zodResolver(medicationPrescriptionModalSchema),
@@ -563,19 +563,21 @@ export function MedicationModal({
       })
       .filter((row): row is MedicationPrescriptionRowValues => row !== null);
 
-  const syncPendingFromApi = (
-    items: Awaited<ReturnType<typeof getMedicationsForConsultation>>["data"],
-  ) => {
-    form.setValue("pendingMedications", mapPendingRows(items), {
-      shouldDirty: false,
-    });
-  };
+  const syncPendingFromApi = useCallback(
+    (
+      items: Awaited<ReturnType<typeof getMedicationsForConsultation>>["data"],
+    ) => {
+      form.setValue("pendingMedications", mapPendingRows(items), {
+        shouldDirty: false,
+      });
+    },
+    [form],
+  );
 
   useEffect(() => {
-    if (!existingMedicationsRes?.data || pendingSyncedRef.current) return;
+    if (!existingMedicationsRes?.data) return;
     syncPendingFromApi(existingMedicationsRes.data);
-    pendingSyncedRef.current = true;
-  }, [existingMedicationsRes, form]);
+  }, [existingMedicationsRes?.data, form, syncPendingFromApi]);
 
   const { mutate: deleteMedication } = useMutation({
     mutationFn: (id: string) => deleteMedicationRecordReq(id),
@@ -595,9 +597,40 @@ export function MedicationModal({
       });
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete medication");
+      toast.error(getApiErrorMessage(error, "Failed to delete medication"));
     },
     onSettled: () => setDeletingId(null),
+  });
+
+  const { mutate: sendMedicationToPatient } = useMutation({
+    mutationFn: ({
+      id,
+      med,
+    }: {
+      id: string;
+      med: MedicationPrescriptionRowValues;
+    }) => updateMedicationRecordReq(mapRowToApiPayload(med, true), id),
+    onMutate: ({ id }) => setSendingId(id),
+    onSuccess: (_data, { id }) => {
+      toast.success("Medication sent to patient");
+      const index = form
+        .getValues("pendingMedications")
+        .findIndex((row) => row._id === id);
+      if (index >= 0) removePending(index);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.consultationMedications(consultationId ?? ""),
+      });
+      queryClient.invalidateQueries({ queryKey: ["medications_doc"] });
+      queryClient.invalidateQueries({
+        queryKey: ["medications", consultationId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(
+        getApiErrorMessage(error, "Failed to send medication to patient"),
+      );
+    },
+    onSettled: () => setSendingId(null),
   });
 
   const submitMedications = async (
@@ -605,7 +638,7 @@ export function MedicationModal({
     assignToPatient: boolean,
   ) => {
     if (!consultationId) {
-      toast.error("Consultation ID is missing. Please try again.");
+      toast.warning("Consultation ID is missing. Please try again.");
       return;
     }
 
@@ -645,26 +678,33 @@ export function MedicationModal({
           : "Medications saved successfully",
       );
 
-      pendingSyncedRef.current = false;
-      const fresh = await queryClient.fetchQuery({
-        queryKey: queryKeys.consultationMedications(consultationId),
-        queryFn: () => getMedicationsForConsultation(consultationId),
-      });
-
+      // Save appeared immediately: merge new drafts into pending list,
+      // clear new-medication inputs.
       form.reset({
-        pendingMedications: mapPendingRows(fresh.data),
+        pendingMedications: [
+          ...values.pendingMedications,
+          ...touchedNewMeds.map((med) =>
+            mapRowToApiPayload(med as MedicationPrescriptionRowValues, false),
+          ),
+        ],
         newMedications: [createEmptyMedicationRow()],
       });
-      pendingSyncedRef.current = true;
 
+      // Invalidate queries so the background useEffect syncs real server
+      // data (replacing draft entries with real _ids from the server).
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.consultationMedications(consultationId ?? ""),
+      });
       queryClient.invalidateQueries({ queryKey: ["medications_doc"] });
       queryClient.invalidateQueries({
         queryKey: ["medications", consultationId],
       });
     } catch (error) {
       toast.error(
-        (error as Error).message ||
+        getApiErrorMessage(
+          error,
           "Failed to save medications. Please try again.",
+        ),
       );
     } finally {
       if (assignToPatient) {
@@ -676,7 +716,7 @@ export function MedicationModal({
   };
 
   const onInvalid = () => {
-    toast.error("Please fix the highlighted medication fields");
+    toast.warning("Please fix the highlighted medication fields");
   };
 
   const handleSave = form.handleSubmit(
@@ -689,7 +729,8 @@ export function MedicationModal({
     onInvalid,
   );
 
-  const isBusy = isSaving || isGenerating || deletingId !== null;
+  const isBusy =
+    isSaving || isGenerating || deletingId !== null || sendingId !== null;
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
@@ -731,6 +772,9 @@ export function MedicationModal({
                     const medicationId = form.getValues(
                       `pendingMedications.${index}._id`,
                     );
+                    const medication = form.getValues(
+                      `pendingMedications.${index}`,
+                    ) as MedicationPrescriptionRowValues;
 
                     return (
                       <MedicationRowFields
@@ -741,19 +785,39 @@ export function MedicationModal({
                         label="Pending"
                         disabled={isBusy}
                         actions={
-                          <button
-                            type="button"
-                            onClick={() => deleteMedication(medicationId!)}
-                            className="p-2 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#FF5252] transition-colors disabled:opacity-50"
-                            disabled={isBusy}
-                            title="Delete medication"
-                          >
-                            {deletingId === medicationId ? (
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-5 h-5" />
-                            )}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                sendMedicationToPatient({
+                                  id: medicationId!,
+                                  med: medication,
+                                })
+                              }
+                              disabled={isBusy || sendingId !== null}
+                              className="p-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B37E] transition-colors disabled:opacity-50"
+                              title="Send to patient"
+                            >
+                              {sendingId === medicationId ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <Send className="w-5 h-5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteMedication(medicationId!)}
+                              className="p-2 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#FF5252] transition-colors disabled:opacity-50"
+                              disabled={isBusy}
+                              title="Delete medication"
+                            >
+                              {deletingId === medicationId ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-5 h-5" />
+                              )}
+                            </button>
+                          </>
                         }
                       />
                     );

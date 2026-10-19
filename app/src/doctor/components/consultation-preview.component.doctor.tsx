@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -143,7 +144,7 @@ function HistoryAddendum({
   data: Record<string, string | string[]> & { _id?: string };
 }) {
   const fields = [
-    { key: "present_complaint", label: "Present Complaint" },
+    { key: "reason_for_appointment", label: "Reason for Appointment (visit)" },
     {
       key: "history_of_presenting_complaint",
       label: "History of Presenting Complaint",
@@ -189,7 +190,8 @@ function HistoryAddendum({
         queryKey: ["consultation-history", consultationId],
       });
     },
-    onError: () => toast.error("Failed to save history addendum"),
+    onError: (error) =>
+      toast.error(getApiErrorMessage(error, "Failed to save history addendum")),
   });
 
   const hasAddendum = Object.values(addendums).some((v) => v.trim());
@@ -286,7 +288,10 @@ function PhysicalExamAddendum({
         queryKey: ["consultation-physical", consultationId],
       });
     },
-    onError: () => toast.error("Failed to save physical exam addendum"),
+    onError: (error) =>
+      toast.error(
+        getApiErrorMessage(error, "Failed to save physical exam addendum"),
+      ),
   });
 
   const hasAddendum = Object.values(addendums).some((v) => v.trim());
@@ -377,7 +382,10 @@ function InvestigationAddendum({
         queryKey: ["consultation-investigation", consultationId],
       });
     },
-    onError: () => toast.error("Failed to save investigation addendum"),
+    onError: (error) =>
+      toast.error(
+        getApiErrorMessage(error, "Failed to save investigation addendum"),
+      ),
   });
 
   const hasAddendum = Object.values(addendums).some((v) => v.trim());
@@ -460,7 +468,10 @@ function DiagnosisAddendum({
         queryKey: ["consultation-diagnosis", consultationId],
       });
     },
-    onError: () => toast.error("Failed to save diagnosis addendum"),
+    onError: (error) =>
+      toast.error(
+        getApiErrorMessage(error, "Failed to save diagnosis addendum"),
+      ),
   });
 
   const hasAddendum = provisionalAddendum.trim() || finalAddendum.trim();
@@ -564,7 +575,10 @@ function TreatmentAddendum({
         queryKey: ["consultation-treatment", consultationId],
       });
     },
-    onError: () => toast.error("Failed to save treatment addendum"),
+    onError: (error) =>
+      toast.error(
+        getApiErrorMessage(error, "Failed to save treatment addendum"),
+      ),
   });
 
   const handleSave = () => {
@@ -706,8 +720,8 @@ export function ConsultationPreview({
             <SectionCard title="History Taking" status={hData?.status}>
               <div className="space-y-4">
                 <PreviewField
-                  label="Present Complaint"
-                  value={hData?.present_complaint}
+                  label="Reason for Appointment (visit)"
+                  value={hData?.reason_for_appointment}
                 />
                 <PreviewField
                   label="History of Presenting Complaint"

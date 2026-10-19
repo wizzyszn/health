@@ -319,7 +319,7 @@ export const MedicationFormSchema = z.object({
 export const referralFormSchema = z.object({
   /** Approved specialty value from REFERRAL_SPECIALTIES; optional (legacy). */
   specialty: z.string().optional(),
-  specialist_name: z.string().trim().min(1, "Specialist name is required"),
+  specialist_name: z.string().trim().optional(),
   hospital: z.string().trim().min(1, "Hospital name is required"),
   /** Address lines auto-filled from APPROVED_HOSPITALS when the hospital is picked. */
   hospital_address: z.array(z.string()).optional(),

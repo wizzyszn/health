@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { asApiError } from "@/lib/api-error";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -170,17 +172,28 @@ function getRawApiErrorMessage(error: unknown): {
   message: string;
   code?: string;
 } {
+  // Trust the server as the single source of truth for user-facing copy.
+  const apiError = asApiError(error);
+  if (apiError) {
+    return {
+      message: apiError.description ?? apiError.message,
+      code: apiError.responseCode,
+    };
+  }
+
+  // Defensive fallback for raw/network errors that bypass requestHandler.
   const data = getErrorData(error);
   const responseDescription = data?.response_description;
   const responseMessage = data?.message;
   const responseCode = data?.response_code as string | undefined;
 
-  if (typeof responseMessage === "string" && responseMessage.trim()) {
-    return { message: responseMessage, code: responseCode };
-  }
-
+  // Prefer response_description (authored, safe), then message.
   if (typeof responseDescription === "string" && responseDescription.trim()) {
     return { message: responseDescription, code: responseCode };
+  }
+
+  if (typeof responseMessage === "string" && responseMessage.trim()) {
+    return { message: responseMessage, code: responseCode };
   }
 
   if (error instanceof Error && error.message.trim()) {
@@ -213,9 +226,11 @@ export function getApiErrorMessage(
 export function isScheduledTimeError(
   error: unknown,
 ): error is { response: { data: { response_code: string } } } {
+  const apiError = asApiError(error);
   const data = getErrorData(error);
   const message = getApiErrorMessage(error, "");
-  const code = data?.response_code as string | undefined;
+  const code =
+    apiError?.responseCode ?? (data?.response_code as string | undefined);
 
   return message.includes("scheduled time") || code === "006";
 }

@@ -17,7 +17,12 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { cn, formatLocalDateTime, getBrowserTimeZone } from "@/lib/utils";
+import {
+  cn,
+  formatLocalDateTime,
+  getBrowserTimeZone,
+  getApiErrorMessage,
+} from "@/lib/utils";
 import Spinner from "@/shared/components/spinner.component";
 import {
   deleteDoctorBlackoutsReq,
@@ -173,20 +178,8 @@ export default function DoctorBlackouts() {
       queryClient.invalidateQueries({ queryKey: ["doctor-blackouts"] });
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
     },
-    onError: (error: unknown) => {
-      let errorMsg = "Failed to delete blackout";
-      const err = error as {
-        response?: { data?: { message?: string | string[] } };
-      };
-      const messageData = err?.response?.data?.message;
-      if (Array.isArray(messageData)) {
-        errorMsg = messageData[0];
-      } else if (typeof messageData === "string") {
-        errorMsg = messageData;
-      } else if (error instanceof Error) {
-        errorMsg = error.message;
-      }
-      toast.error(errorMsg);
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to delete blackout"));
     },
   });
 
@@ -204,20 +197,8 @@ export default function DoctorBlackouts() {
       // Invalidate full schedules too
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
     },
-    onError: (error: unknown) => {
-      let errorMsg = "Failed to update blackouts";
-      const err = error as {
-        response?: { data?: { message?: string | string[] } };
-      };
-      const messageData = err?.response?.data?.message;
-      if (Array.isArray(messageData)) {
-        errorMsg = messageData[0];
-      } else if (typeof messageData === "string") {
-        errorMsg = messageData;
-      } else if (error instanceof Error) {
-        errorMsg = error.message;
-      }
-      toast.error(errorMsg);
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to update blackouts"));
     },
   });
 

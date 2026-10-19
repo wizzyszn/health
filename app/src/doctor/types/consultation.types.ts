@@ -94,7 +94,7 @@ export interface ConsultationBookingProfileSnapshot {
   gender: string;
   marital_status: string;
   occupation: string;
-  present_complaint: string;
+  reason_for_appointment: string;
 }
 
 export interface ConsultationAppointmentPerson {
@@ -121,7 +121,7 @@ export interface RawDoctorConsultationAppointment {
   timezone_snapshot: string;
   status: AppointmentStatus;
   reason_for_visit: string;
-  complaint_brief?: string;
+  complaint_details?: string;
   Medical_conditions?: string[];
   allergies?: string[];
   booking_profile_snapshot?: ConsultationBookingProfileSnapshot;

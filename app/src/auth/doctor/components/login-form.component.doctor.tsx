@@ -79,7 +79,7 @@ function LoginForm() {
       navigate();
     },
     onError: (response) => {
-      toast.error(response.message);
+      toast.warning(response.message);
       console.error(response.message);
     },
   });

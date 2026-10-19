@@ -64,8 +64,8 @@ const DEFAULT_VALUES: BookingFormData = {
   gender: "",
   maritalStatus: "",
   occupation: "",
-  complaint: "",
-  complaintBrief: "",
+  reasonForAppointment: "",
+  complaintDetails: "",
   medicalConditions: [],
   allergies: [],
   doctorId: "",
@@ -138,8 +138,8 @@ const appointmentToFormData = (
     gender: data.booking_profile_snapshot?.gender || "",
     maritalStatus: data.booking_profile_snapshot?.marital_status || "",
     occupation: data.booking_profile_snapshot?.occupation || "",
-    complaint: data.reason_for_visit || "",
-    complaintBrief: "",
+    reasonForAppointment: data.reason_for_visit || "",
+    complaintDetails: "",
     medicalConditions: [],
     allergies: [],
     doctorId: data.doctor_id?._id || "",
@@ -180,7 +180,7 @@ const getSelectedSlotBlocks = (timeSlot: string) => {
   return Math.ceil(duration / 15);
 };
 
-const canSelectDurationFromStart = (
+const findAvailabilitySlot = (
   availability: BookingAvailabilityByDate | undefined,
   selectedDate: string,
   timeSlot: string,
@@ -190,9 +190,17 @@ const canSelectDurationFromStart = (
     "yyyy-MM-dd",
   );
   const startTime = timeSlot.split(" - ")[0]?.trim();
-  const startSlot = availability?.[selectedDateKey]?.slots.find(
+  return availability?.[selectedDateKey]?.slots.find(
     (slot) => slot.time === startTime,
   );
+};
+
+const canSelectDurationFromStart = (
+  availability: BookingAvailabilityByDate | undefined,
+  selectedDate: string,
+  timeSlot: string,
+) => {
+  const startSlot = findAvailabilitySlot(availability, selectedDate, timeSlot);
   const requestedBlocks = getSelectedSlotBlocks(timeSlot);
 
   return Boolean(
@@ -244,8 +252,8 @@ const buildPayload = (data: BookingFormData) => {
     gender: data.gender,
     marital_status: data.maritalStatus,
     occupation: data.occupation,
-    present_complaint: data.complaint,
-    complaint_brief: data.complaintBrief || undefined,
+    reason_for_appointment: data.reasonForAppointment,
+    complaint_details: data.complaintDetails || undefined,
     Medical_conditions: data.medicalConditions?.length
       ? data.medicalConditions
       : undefined,
@@ -254,7 +262,7 @@ const buildPayload = (data: BookingFormData) => {
     scheduled_start_local: formatLocalDateTime(naiveStart),
     timezone: timeZone,
     requested_duration_minutes: durationMinutes,
-    reason_for_visit: data.complaint,
+    reason_for_visit: data.reasonForAppointment,
     confirm_appointment: true as const,
     consultation_type: data.consultationType as
       | "VIDEO"
@@ -273,7 +281,10 @@ const shouldReturnToTimeSlotStep = (error: RejectedPayload) => {
 
   return (
     message.includes("cannot book a past timeslot") ||
-    message.includes("selected slot is already booked")
+    message.includes("selected slot is already booked") ||
+    // The patient already holds an appointment overlapping the one they picked,
+    // so send them back to choose a different time.
+    message.includes("already have an appointment")
   );
 };
 
@@ -295,7 +306,7 @@ export type BookingResponse = {
     gender: string;
     marital_status: string;
     occupation: string;
-    present_complaint: string;
+    reason_for_appointment: string;
   };
 };
 
@@ -449,7 +460,7 @@ const Booking = () => {
       queryClient.invalidateQueries({ queryKey: ["consultations"] });
     },
     onError: (error: RejectedPayload) => {
-      toast.error(
+      toast.warning(
         getRejectedMessage(error) ||
           "Failed to book appointment. Please try again.",
       );
@@ -479,7 +490,7 @@ const Booking = () => {
       queryClient.invalidateQueries({ queryKey: ["consultations"] });
     },
     onError: (error: RejectedPayload) => {
-      toast.error(
+      toast.warning(
         getRejectedMessage(error) ||
           "Failed to reschedule appointment. Please try again.",
       );
@@ -524,9 +535,23 @@ const Booking = () => {
         targetTimeSlot,
       )
     ) {
-      toast.error(
-        "That time is no longer available. Please choose another slot.",
+      const targetSlot = findAvailabilitySlot(
+        latestAvailability.data,
+        targetDate,
+        targetTimeSlot,
       );
+
+      let unavailableReason =
+        "That time is no longer available. Please choose another slot.";
+      if (targetSlot?.patient_conflict) {
+        unavailableReason =
+          "You already have an appointment at that time. Please choose another slot.";
+      } else if (targetSlot?.patient_limits_duration) {
+        unavailableReason =
+          "Only part of that time is free because of an appointment you already have. Please choose a different time or a shorter duration.";
+      }
+
+      toast.warning(unavailableReason);
       methods.setValue("timeSlot", "", { shouldValidate: true });
       methods.setValue("suggestedTimeSlot", undefined);
       methods.setValue("suggestedDate", undefined);
@@ -591,7 +616,7 @@ const Booking = () => {
             scheduled_start_local: formatLocalDateTime(naiveStart),
             timezone: timeZone,
             requested_duration_minutes: durationMinutes,
-            reason: allData.complaint || "Rescheduled by patient",
+            reason: allData.reasonForAppointment || "Rescheduled by patient",
             requested_specialization:
               allData.suggestedDoctorSpecialty || allData.doctorSpecialty,
           });

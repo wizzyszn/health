@@ -89,7 +89,7 @@ function LoginForm() {
       }
     },
     onError: (response) => {
-      toast.error(response.message);
+      toast.warning(response.message);
       console.error(response.message);
     },
   });
@@ -104,7 +104,7 @@ function LoginForm() {
     const authError = searchParams.get("error");
     if (!authError) return;
 
-    toast.error(authError);
+    toast.warning(authError);
     navigate("/patient/login", { replace: true });
   }, [navigate, searchParams]);
 

@@ -75,7 +75,7 @@ export default function ViewReferralDetails() {
 
   const handleDownloadPDF = async (ref: ReferralData) => {
     if (!profile) {
-      toast.error("Your profile is still loading — please try again.");
+      toast.warning("Your profile is still loading — please try again.");
       return;
     }
     try {

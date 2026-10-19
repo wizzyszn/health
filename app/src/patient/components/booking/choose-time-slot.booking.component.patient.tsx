@@ -66,6 +66,10 @@ type TimeIntervalAvailability = Record<
   {
     availableDoctors: number;
     maxConsecutiveSlots: number;
+    /** The patient already has an appointment overlapping this slot. */
+    patientConflict: boolean;
+    /** Free, but an appointment of theirs caps how long a booking here can run. */
+    patientLimitsDuration: boolean;
   }
 >;
 
@@ -238,12 +242,34 @@ const ChooseTimeSlot = ({
           lookup[slot.time] = {
             availableDoctors: slot.available_doctors,
             maxConsecutiveSlots: slot.max_consecutive_slots,
+            patientConflict: slot.patient_conflict === true,
+            patientLimitsDuration: slot.patient_limits_duration === true,
           };
           return lookup;
         },
         {},
       );
     }, [isSelectedDateAvailabilityLoaded, selectedDateAvailabilitySlots]);
+
+  // Drives the legend: is any visible time blocked because the patient already
+  // holds an overlapping appointment? Only then is the amber note worth showing.
+  const hasPatientConflictOnSelectedDate = useMemo(() => {
+    if (!selectedDateAvailabilityByTime) return false;
+    return Object.values(selectedDateAvailabilityByTime).some(
+      (slot) => slot.patientConflict,
+    );
+  }, [selectedDateAvailabilityByTime]);
+
+  // Companion legend line: a slot can be free and still not fit the chosen
+  // duration because one of the patient's own appointments begins right after
+  // it. Recomputed per duration, since a shorter booking may fit fine.
+  const hasPatientDurationLimitOnSelectedDate = useMemo(() => {
+    if (!selectedDateAvailabilityByTime) return false;
+    return Object.values(selectedDateAvailabilityByTime).some(
+      (slot) =>
+        slot.patientLimitsDuration && slot.maxConsecutiveSlots < durationBlocks,
+    );
+  }, [selectedDateAvailabilityByTime, durationBlocks]);
 
   // ── Per-date availability indicator (does this date have any available slots?) ──
   const dateHasAvailability = useCallback(
@@ -490,18 +516,30 @@ const ChooseTimeSlot = ({
         setValue("suggestedDate", undefined);
         setValue("isQueueing", false);
         onNext();
-      } else {
-        setValue("suggestedDoctorId", undefined);
-        setValue("suggestedDoctorName", undefined);
-        setValue("suggestedDoctorSpecialty", undefined);
-        setValue("suggestedTimeSlot", undefined);
-        setValue("suggestedDate", undefined);
-        setValue("isQueueing", false);
-        onDoctorUnavailable?.();
+        return;
       }
+
+      // A clash with the patient's own appointment is not a "find another
+      // doctor" problem — no other doctor can solve it. Stay on this step and
+      // say why. Every other reason (doctor busy, blackout, out of hours) is
+      // about the doctor, so it still routes to FindDoctor.
+      if (data.reason_code === "PATIENT_BOOKED") {
+        toast.warning(
+          data.reason || "You already have an appointment at that time.",
+        );
+        return;
+      }
+
+      setValue("suggestedDoctorId", undefined);
+      setValue("suggestedDoctorName", undefined);
+      setValue("suggestedDoctorSpecialty", undefined);
+      setValue("suggestedTimeSlot", undefined);
+      setValue("suggestedDate", undefined);
+      setValue("isQueueing", false);
+      onDoctorUnavailable?.();
     },
     onError: (error: RejectedPayload) => {
-      toast.error(
+      toast.warning(
         error.message ||
           "Could not verify doctor availability. Please try again.",
       );
@@ -525,22 +563,30 @@ const ChooseTimeSlot = ({
   };
 
   // ── Count available slots per group for the selected date ───────────────────
-  const groupAvailableCounts = useMemo(() => {
+  // `bookable` drives the header badge; `patientExplained` counts the slots the
+  // patient can be told something useful about (their own clash, or their own
+  // appointment capping the length). Either keeps the group's grid visible, so
+  // a period that is entirely blocked by the patient's own diary still explains
+  // itself instead of collapsing to a bare "No available slots".
+  const groupSlotCounts = useMemo(() => {
     return TIME_GROUPS.map((group) => {
       const periods = ALL_INTERVALS.slice(group.range[0], group.range[1]);
-      let count = 0;
+      let bookable = 0;
+      let patientExplained = 0;
       for (const p of periods) {
         const slot = selectedDateAvailabilityByTime?.[p];
+        if (!slot || disabledIntervals.has(p)) continue;
+
         if (
-          slot &&
           slot.availableDoctors > 0 &&
-          slot.maxConsecutiveSlots >= durationBlocks &&
-          !disabledIntervals.has(p)
+          slot.maxConsecutiveSlots >= durationBlocks
         ) {
-          count++;
+          bookable++;
+        } else if (slot.patientConflict || slot.patientLimitsDuration) {
+          patientExplained++;
         }
       }
-      return count;
+      return { bookable, patientExplained };
     });
   }, [selectedDateAvailabilityByTime, durationBlocks, disabledIntervals]);
 
@@ -817,8 +863,16 @@ const ChooseTimeSlot = ({
         ) : (
           <div className="max-h-[320px] space-y-2.5 overflow-y-auto pr-1">
             {timeGridGroups.map((group, groupIdx) => {
-              const availableCount = groupAvailableCounts[groupIdx];
+              const { bookable, patientExplained } = groupSlotCounts[groupIdx];
+              const renderSlots = bookable > 0 || patientExplained > 0;
               const Icon = group.icon;
+
+              let countLabel = "No slots";
+              if (bookable > 0) {
+                countLabel = `${bookable} slot${bookable !== 1 ? "s" : ""}`;
+              } else if (patientExplained > 0) {
+                countLabel = "Not available";
+              }
 
               return (
                 <div
@@ -826,9 +880,9 @@ const ChooseTimeSlot = ({
                   className={cn(
                     "rounded-xl border p-3 transition-all duration-200",
                     group.borderColor,
-                    availableCount === 0
-                      ? "opacity-50"
-                      : "bg-gradient-to-r " + group.gradient,
+                    renderSlots
+                      ? "bg-gradient-to-r " + group.gradient
+                      : "opacity-50",
                   )}
                 >
                   {/* Group header */}
@@ -840,14 +894,12 @@ const ChooseTimeSlot = ({
                       </span>
                     </div>
                     <span className="text-[11px] font-medium text-muted-foreground">
-                      {availableCount > 0
-                        ? `${availableCount} slot${availableCount !== 1 ? "s" : ""}`
-                        : "No slots"}
+                      {countLabel}
                     </span>
                   </div>
 
                   {/* Slots grid */}
-                  {availableCount > 0 ? (
+                  {renderSlots ? (
                     <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
                       {group.periods.map((interval) => {
                         const selectable = isSlotSelectable(interval);
@@ -855,6 +907,62 @@ const ChooseTimeSlot = ({
                           selectable && selectedStartInterval === interval;
 
                         if (!selectable) {
+                          const slotInfo =
+                            selectedDateAvailabilityByTime?.[interval];
+                          // Past times stay muted — neither the appointment
+                          // clash nor a shortened run is why they cannot be
+                          // picked.
+                          const isPatientConflict =
+                            slotInfo?.patientConflict === true &&
+                            !disabledIntervals.has(interval);
+                          // Free, doctor available, but the patient's own
+                          // appointment caps the run below what the chosen
+                          // duration needs. Amber with a dashed edge: the same
+                          // "it is your diary" colour, a different remedy.
+                          const isPatientDurationLimited =
+                            !isPatientConflict &&
+                            slotInfo?.patientLimitsDuration === true &&
+                            !disabledIntervals.has(interval);
+
+                          if (isPatientConflict) {
+                            // Distinct from a generic busy slot: the patient
+                            // can act on this one by picking another time.
+                            return (
+                              <button
+                                key={interval}
+                                type="button"
+                                disabled
+                                title="You already have an appointment at this time"
+                                aria-label={`${interval} — you already have an appointment at this time`}
+                                className="h-8 cursor-not-allowed rounded-md border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-700/80"
+                              >
+                                {interval}
+                              </button>
+                            );
+                          }
+
+                          if (isPatientDurationLimited) {
+                            const freeMinutes =
+                              (slotInfo?.maxConsecutiveSlots ?? 0) * 15;
+                            const freeUntil = getEndTimeByBlocks(
+                              interval,
+                              slotInfo?.maxConsecutiveSlots ?? 1,
+                            );
+                            const explanation = `only ${freeMinutes} min free here — you have an appointment at ${freeUntil}`;
+                            return (
+                              <button
+                                key={interval}
+                                type="button"
+                                disabled
+                                title={`Only ${freeMinutes} min free here — you have an appointment at ${freeUntil}`}
+                                aria-label={`${interval} — ${explanation}`}
+                                className="h-8 cursor-not-allowed rounded-md border border-dashed border-amber-300 bg-amber-50/60 text-[11px] font-medium text-amber-700/80"
+                              >
+                                {interval}
+                              </button>
+                            );
+                          }
+
                           // Show unavailable slots but collapsed
                           return (
                             <button
@@ -912,6 +1020,24 @@ const ChooseTimeSlot = ({
           </div>
         )}
 
+        {(hasPatientConflictOnSelectedDate ||
+          hasPatientDurationLimitOnSelectedDate) && (
+          <p className="mt-3 flex items-start gap-1.5 text-[11px] text-amber-700">
+            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>
+              Amber times are affected by appointments you already have.
+              {hasPatientDurationLimitOnSelectedDate && (
+                <>
+                  {" "}
+                  Dashed times are free but too short for {durationBlocks *
+                    15}{" "}
+                  min because one begins right after.
+                </>
+              )}
+            </span>
+          </p>
+        )}
+
         {errors.timeSlot && (
           <p className="text-xs text-destructive mt-2">
             {errors.timeSlot.message}
@@ -965,12 +1091,11 @@ const ChooseTimeSlot = ({
       <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 px-3.5 py-3 text-sm text-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="space-y-1">
-          <p className="font-medium">Hint message</p>
+          <p className="font-medium">Info</p>
           <p className="text-muted-foreground">
             Your selected consultation slot will only be guaranteed once you
             complete your booking and payment. Please proceed with payment to
-            confirm and secure your appointment, as the slot may be released if
-            payment is not completed.
+            confirm and secure your appointment.
           </p>
         </div>
       </div>

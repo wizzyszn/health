@@ -3,6 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   createDiagnosisForConsultationReq,
   updateDiagnosisForConsultationReq,
@@ -345,9 +346,7 @@ function DiagnosisInner({
         return true;
       } catch (error) {
         if (!silent) {
-          toast.error(
-            error instanceof Error ? error.message : "Failed to save diagnosis",
-          );
+          toast.error(getApiErrorMessage(error, "Failed to save diagnosis"));
         }
         return false;
       } finally {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useForm,
   useFieldArray,
@@ -13,14 +13,13 @@ import {
   Send,
   FileText,
   Paperclip,
-  Pill,
-  ShieldAlert,
   FileImage,
   CheckSquare,
   Square,
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +51,7 @@ import {
   listReferralsForConsultationReq,
   updateReferralRecordReq,
 } from "@/config/service/doctor.service";
+import { getPatientActiveMedicationHistory } from "@/config/service/patient.service";
 import {
   isTouchedReferralRow,
   referralFormSchema,
@@ -72,11 +72,6 @@ interface ReferralModalProps {
   consultationId: string;
   /** Patient of the consultation — enables the investigation attachments selector. */
   patientId?: string;
-  /** Already loaded in the consultation-space sidebar; passed down, not refetched. */
-  patientMedical?: {
-    allergies: string[];
-    previousMedicalConditions: string[];
-  };
 }
 
 type ReferralFieldPrefix = `pendingReferrals.${number}` | "newReferral";
@@ -109,7 +104,6 @@ function mapReferralFormToPayload(
         ? values.attachment_investigation_ids
         : undefined,
     referral_details: values.referral_details,
-    current_medications: values.current_medications?.trim() || undefined,
     assign_to_patient: assignToPatient,
   };
 }
@@ -157,7 +151,7 @@ function ReferralFormFields({
         render={({ field }) => (
           <FormItem>
             <FormLabel className="text-sm sm:text-base text-gray-700 font-medium">
-              Specialist Name *
+              Specialist Name
             </FormLabel>
             <FormControl>
               <Input
@@ -358,14 +352,12 @@ export function ReferralModal({
   onClose,
   consultationId,
   patientId,
-  patientMedical,
 }: ReferralModalProps) {
   const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const pendingSyncedRef = useRef(false);
 
   const form = useForm<ReferralModalValues>({
     resolver: zodResolver(referralModalSchema),
@@ -384,6 +376,15 @@ export function ReferralModal({
   const { data: referralsRes, isLoading: isFetching } = useQuery({
     queryKey: ["referrals", consultationId],
     queryFn: () => listReferralsForConsultationReq(consultationId),
+    enabled: !!consultationId,
+  });
+
+  // Patient's active medications — used to prefill the Current Medications
+  // field so the doctor can see them when writing the referral letter.
+  // The API resolves the patient from the auth token, so no patientId param needed.
+  const { data: patientMedsRes } = useQuery({
+    queryKey: ["patient-active-medications"],
+    queryFn: getPatientActiveMedicationHistory,
     enabled: !!consultationId,
   });
 
@@ -448,22 +449,38 @@ export function ReferralModal({
       })
       .map(mapApiReferralToRow);
 
-  const syncPendingFromApi = (
-    items: Awaited<ReturnType<typeof listReferralsForConsultationReq>>["data"],
-  ) => {
-    form.setValue("pendingReferrals", mapPendingRows(items), {
-      shouldDirty: false,
-    });
-  };
+  const syncPendingFromApi = useCallback(
+    (
+      items: Awaited<
+        ReturnType<typeof listReferralsForConsultationReq>
+      >["data"],
+    ) => {
+      form.setValue("pendingReferrals", mapPendingRows(items), {
+        shouldDirty: false,
+      });
+    },
+    [form],
+  );
 
   useEffect(() => {
-    if (!referralsRes?.data || pendingSyncedRef.current) return;
+    if (!referralsRes?.data) return;
     syncPendingFromApi(referralsRes.data);
-    pendingSyncedRef.current = true;
-  }, [referralsRes, form]);
+  }, [referralsRes?.data, form, syncPendingFromApi]);
 
-  const invalidate = () =>
+  // Prefill Current Medications with the patient's active medications.
+  useEffect(() => {
+    if (!patientMedsRes?.data || patientMedsRes.data.length === 0) return;
+    const medsText = patientMedsRes.data.map((m) => m.medication).join("\n");
+    form.setValue("newReferral.current_medications", medsText);
+  }, [patientMedsRes?.data, form]);
+
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["referrals", consultationId] });
+    // Keeps the consultation-space sidebar history (and its detail sheet) in step
+    // with edits made here.
+    queryClient.invalidateQueries({ queryKey: ["patient-referral-history"] });
+    queryClient.invalidateQueries({ queryKey: ["patient-referral-record"] });
+  };
 
   const { mutate: remove } = useMutation({
     mutationFn: (id: string) => deleteReferralRecordReq(id),
@@ -476,7 +493,8 @@ export function ReferralModal({
       if (index >= 0) removePending(index);
       invalidate();
     },
-    onError: () => toast.error("Failed to delete referral"),
+    onError: (error) =>
+      toast.error(getApiErrorMessage(error, "Failed to delete referral")),
     onSettled: () => setDeletingId(null),
   });
 
@@ -487,7 +505,7 @@ export function ReferralModal({
     const hasNewReferral = isTouchedReferralRow(values.newReferral);
 
     if (values.pendingReferrals.length === 0 && !hasNewReferral) {
-      toast.error("Add referral details before saving");
+      toast.warning("Add referral details before saving");
       return;
     }
 
@@ -498,6 +516,7 @@ export function ReferralModal({
     }
 
     try {
+      // Fire API calls in background — don't block UI on them.
       const patchPromises = values.pendingReferrals.map((referral) =>
         updateReferralRecordReq(
           referral._id!,
@@ -524,20 +543,41 @@ export function ReferralModal({
           : "Referral saved",
       );
 
-      pendingSyncedRef.current = false;
-      const fresh = await queryClient.fetchQuery({
-        queryKey: ["referrals", consultationId],
-        queryFn: () => listReferralsForConsultationReq(consultationId),
+      // Save appeared immediately: merge new draft into pending list,
+      // clear new-referral inputs.
+      form.reset({
+        pendingReferrals: [
+          ...values.pendingReferrals,
+          ...(hasNewReferral
+            ? [
+                mapReferralFormToPayload(
+                  values.newReferral as ReferralFormValues,
+                  false,
+                ),
+              ]
+            : []),
+        ],
+        newReferral: { ...EMPTY_NEW_REFERRAL },
       });
 
-      form.reset({
-        pendingReferrals: mapPendingRows(fresh.data),
-        newReferral: { ...EMPTY_NEW_REFERRAL },
+      // Invalidate queries so the background useEffect syncs real server
+      // data (replacing draft entries with real _ids from the server).
+      queryClient.invalidateQueries({
+        queryKey: ["referrals", consultationId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["patient-referral-history"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["patient-referral-record"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["medications_doc"] });
+      queryClient.invalidateQueries({
+        queryKey: ["medications", consultationId],
       });
     } catch (error) {
       toast.error(
-        (error as Error).message ||
-          "Failed to save referral. Please try again.",
+        getApiErrorMessage(error, "Failed to save referral. Please try again."),
       );
     } finally {
       setIsSaving(false);
@@ -559,7 +599,7 @@ export function ReferralModal({
         `pendingReferrals.${index}.hospital`,
         `pendingReferrals.${index}.referral_details`,
       ]);
-      toast.error("Please complete all required fields before sending");
+      toast.warning("Please complete all required fields before sending");
       return;
     }
 
@@ -574,8 +614,10 @@ export function ReferralModal({
       invalidate();
     } catch (error) {
       toast.error(
-        (error as Error).message ||
+        getApiErrorMessage(
+          error,
           "Failed to send referral to patient. Please try again.",
+        ),
       );
     } finally {
       setSendingId(null);
@@ -583,7 +625,7 @@ export function ReferralModal({
   };
 
   const onInvalid = () => {
-    toast.error("Please fix the highlighted referral fields");
+    toast.warning("Please fix the highlighted referral fields");
   };
 
   const handleSave = form.handleSubmit(
@@ -613,52 +655,6 @@ export function ReferralModal({
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6"
             onSubmit={(event) => event.preventDefault()}
           >
-            {/* Auto-populated clinical context — read-only, from sidebar data */}
-            {patientMedical && (
-              <div className="rounded-lg border border-gray-200 bg-[#F8F7FC] p-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Auto-populated clinical data
-                </p>
-                <div className="flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-600">
-                      Allergies
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {patientMedical.allergies.length > 0 ? (
-                        patientMedical.allergies.map((allergy) => (
-                          <span
-                            key={allergy}
-                            className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
-                          >
-                            {allergy}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-gray-500">
-                          No known drug allergies
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Pill className="w-4 h-4 text-[#5164E8] mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-600">
-                      Past medical history
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1 break-words">
-                      {patientMedical.previousMedicalConditions.length > 0
-                        ? patientMedical.previousMedicalConditions.join("; ")
-                        : "None recorded"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {isFetching && (
               <div className="flex items-center justify-center py-6 text-gray-500 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-[#5164E8]" />

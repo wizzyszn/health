@@ -29,7 +29,7 @@ type PatientAppointmentProfileSnapshot = {
   gender: string;
   marital_status: string;
   occupation: string;
-  present_complaint: string;
+  reason_for_appointment: string;
 };
 
 type PatientAppointmentPatient = {
@@ -337,6 +337,19 @@ export const getAConsultation = (consultationId: string) => {
   >(url, options("GET", null, true));
 };
 
+// Consolidated clinical summary of one consultation: reason for visit, the
+// recorded diagnoses, the doctor's treatment plan, and roll-ups of the
+// medications, investigations and referrals released to the patient.
+export const getConsultationSummaryReq = (consultationId: string) => {
+  const url = urlGenerator(
+    "patients",
+    `consultations/${consultationId}/summary`,
+    false,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return requestHandler<GeneralReturnInt<any>>(url, options("GET", null, true));
+};
+
 // Edit a particular consultation
 export const editAConsultation = (
   consultationId: string,
@@ -393,11 +406,7 @@ export const getPatientMedicationHistory = (query?: string) => {
 
 // Get active medications for a patient
 export const getPatientActiveMedicationHistory = () => {
-  const url = urlGenerator(
-    "patients",
-    "consultations/medications/active",
-    false,
-  );
+  const url = urlGenerator("patients", "medications/active", false);
   return requestHandler<GeneralReturnInt<MedicationDetail[]>>(
     url,
     options("GET", null, true),
@@ -603,7 +612,7 @@ export const getAppointmentsReq = (param: {
           gender: string;
           marital_status: string;
           occupation: string;
-          present_complaint: string;
+          reason_for_appointment: string;
         };
         consultation_id: string;
         status: PatientAppointmentStatus;
@@ -623,6 +632,21 @@ export type BookingAvailabilitySlot = {
   time: string;
   available_doctors: number;
   max_consecutive_slots: number;
+  /**
+   * True when this slot overlaps an appointment the requesting patient already
+   * holds. Backend-computed and role-scoped, so it is only ever true for a
+   * patient caller: it is the difference between "no doctors free" and "you are
+   * already booked", which the picker surfaces differently.
+   */
+  patient_conflict?: boolean;
+  /**
+   * True when this slot is free, but one of the patient's own appointments sits
+   * just past it, so the longest booking that fits here is shorter than the
+   * maximum duration the picker offers. Lets the picker explain a slot that is
+   * offered time-wise yet too short for the chosen duration, rather than
+   * greying it out alongside genuine "no doctors free" slots.
+   */
+  patient_limits_duration?: boolean;
 };
 
 export type BookingAvailabilityByDate = Record<
@@ -696,7 +720,7 @@ export const getSingleAppointmentReq = (id: string) => {
         gender: string;
         marital_status: string;
         occupation: string;
-        present_complaint: string;
+        reason_for_appointment: string;
       };
       consultation_id: {
         _id: string;
@@ -852,6 +876,17 @@ export const checkDoctorAvailabilityReq = (
   return requestHandler<
     GeneralReturnInt<{
       available: boolean;
+      /** Stable discriminator — prefer this over matching on `reason`. */
+      reason_code?:
+        | "PATIENT_BOOKED"
+        | "NO_DOCTOR_AVAILABILITY"
+        | "OUTSIDE_EFFECTIVE_RANGE"
+        | "NO_SLOT_AT_TIME"
+        | "DURATION_MISALIGNED"
+        | "DURATION_EXCEEDS_WINDOW"
+        | "BLACKOUT"
+        | "DOCTOR_BOOKED";
+      reason?: string;
       doctor?: {
         _id: string;
         first_name: string;
@@ -876,7 +911,7 @@ export const bookAnAppointmentReq = (data: {
   gender: string;
   marital_status: string;
   occupation: string;
-  present_complaint: string;
+  reason_for_appointment: string;
   doctor_id: string;
   scheduled_start_local: string;
   timezone: string;
@@ -889,7 +924,7 @@ export const bookAnAppointmentReq = (data: {
     | "AUDIO"
     | "MEETADOCTOR"
     | "HOMESERVICE";
-  complaint_brief?: string;
+  complaint_details?: string;
   Medical_conditions?: string[]; // examples ["Hypertension","Asthma"],
   allergies?: string[];
 }) => {
@@ -927,7 +962,7 @@ export const bookAnAppointmentReq = (data: {
         gender: string;
         marital_status: string;
         occupation: string;
-        present_complaint: string;
+        reason_for_appointment: string;
       };
     }>
   >(url, options("POST", formattedData, true));

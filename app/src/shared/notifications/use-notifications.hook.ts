@@ -173,7 +173,7 @@ export function useNotificationsController(
         queryClient.setQueryData(key, value);
       }
       invalidateAll();
-      toast.error("Couldn't mark that notification as read.");
+      toast.warning("Couldn't mark that notification as read.");
     },
   });
 
@@ -216,7 +216,7 @@ export function useNotificationsController(
         queryClient.setQueryData(key, value);
       }
       invalidateAll();
-      toast.error("Couldn't mark everything as read.");
+      toast.warning("Couldn't mark everything as read.");
     },
     onSuccess: () => {
       // Server knows rows outside our cached pages; reconcile quietly.
@@ -274,7 +274,7 @@ export function useNotificationsController(
         queryClient.setQueryData(key, value);
       }
       invalidateAll();
-      toast.error("Couldn't delete that notification.");
+      toast.warning("Couldn't delete that notification.");
     },
     onSuccess: () => {
       // Quiet confirmation — the row already vanished optimistically.

@@ -10,10 +10,13 @@ export const personalDetailsSchema = z.object({
   gender: z.string().min(1, "Please select your gender"),
   maritalStatus: z.string().min(1, "Please select marital status"),
   occupation: z.string().min(1, "Please enter your occupation"),
-  complaint: z
+  reasonForAppointment: z
     .string()
-    .min(5, "Please describe your complaint (at least 5 characters)"),
-  complaintBrief: z.string().optional().default(""),
+    .min(
+      5,
+      "Please describe your reason for appointment (at least 5 characters)",
+    ),
+  complaintDetails: z.string().optional().default(""),
   medicalConditions: z.array(z.string()).optional().default([]),
   allergies: z.array(z.string()).optional().default([]),
 });
@@ -67,8 +70,8 @@ export const STEP_FIELDS: Record<number, (keyof BookingFormData)[]> = {
     "gender",
     "maritalStatus",
     "occupation",
-    "complaint",
-    "complaintBrief",
+    "reasonForAppointment",
+    "complaintDetails",
     "medicalConditions",
     "allergies",
   ],

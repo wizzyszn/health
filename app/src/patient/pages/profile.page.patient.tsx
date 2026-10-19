@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import MainPageHeader from "@/shared/components/main-page-header.component.shared";
 import { profileSchema } from "@/auth/patient/lib/schemas";
-import { cn } from "@/lib/utils";
+import { cn, getApiErrorMessage } from "@/lib/utils";
 import { Camera, Eye, EyeOff, LogOut, MoveLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -198,16 +198,21 @@ export default function PatientProfile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { data, isLoading, isError } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    error: profileError,
+  } = useQuery({
     queryKey: queryKeys.patientProfile,
     queryFn: getPatientProfileReq,
   });
 
   useEffect(() => {
     if (isError) {
-      toast.error("Failed to load profile");
+      toast.error(getApiErrorMessage(profileError, "Failed to load profile"));
     }
-  }, [isError]);
+  }, [isError, profileError]);
 
   const changePasswordForm = useForm<ChangePasswordValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -233,7 +238,7 @@ export default function PatientProfile() {
         err.response?.data?.message ||
         err.message ||
         "Failed to change password";
-      toast.error(errorData);
+      toast.warning(errorData);
     },
   });
 
@@ -254,15 +259,7 @@ export default function PatientProfile() {
       toast.success("Timezone updated successfully!");
     },
     onError: (error) => {
-      const err = error as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to update timezone",
-      );
+      toast.error(getApiErrorMessage(error, "Failed to update timezone"));
     },
   });
 
@@ -315,8 +312,8 @@ export default function PatientProfile() {
 
       setOriginalValues(form.getValues());
     },
-    onError: () => {
-      toast.error("Failed to update profile");
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to update profile"));
     },
   });
 
@@ -338,8 +335,8 @@ export default function PatientProfile() {
         }),
       );
     },
-    onError: () => {
-      toast.error("Failed to remove photo.");
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to remove photo."));
     },
   });
 
@@ -400,12 +397,12 @@ export default function PatientProfile() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+      toast.warning("Please select an image file");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image too large (max 5MB)");
+      toast.warning("Image too large (max 5MB)");
       return;
     }
     const reader = new FileReader();

@@ -334,26 +334,26 @@ const PersonalDetails = ({ onNext, isReschedule }: PersonalDetailsProps) => {
 
       <motion.div variants={itemVariants} className="space-y-1">
         <Label className="text-sm font-medium text-foreground">
-          Present Complaint
+          Reason for Appointment (visit)
         </Label>
         <Input
-          {...register("complaint")}
+          {...register("reasonForAppointment")}
           placeholder="e.g. Persistent headache, Chest pain"
           className="border-border transition-colors focus-visible:ring-primary/50 hover:border-border/80"
         />
-        {errors.complaint && (
+        {errors.reasonForAppointment && (
           <p className="text-xs text-destructive mt-1">
-            {errors.complaint.message}
+            {errors.reasonForAppointment.message}
           </p>
         )}
       </motion.div>
 
       <motion.div variants={itemVariants} className="space-y-1">
         <Label className="text-sm font-medium text-foreground">
-          Complaint Brief
+          Complaint Details
         </Label>
         <Textarea
-          {...register("complaintBrief")}
+          {...register("complaintDetails")}
           placeholder="Please describe your symptoms in detail — how long you've had them, severity, and any other relevant information"
           className="border-border min-h-[100px] resize-none transition-colors focus-visible:ring-primary/50 hover:border-border/80"
         />

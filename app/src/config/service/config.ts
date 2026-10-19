@@ -109,13 +109,15 @@ const requestHandler = async <T>(
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
       const body = readErrorBody(error.response.data);
+      // Server is the single source of truth for user-facing error copy.
+      // Prefer response_description (authored, safe message), then message.
+      const serverMessage =
+        body.response_description ?? body.message ?? error.message;
       throw new ApiError({
-        // Preserve the legacy ", status: N" suffix — downstream parsers in
-        // lib/utils.ts strip it with a regex.
-        message: `${body.message ?? error.message}, status: ${error.response.status}`,
+        message: serverMessage,
         httpStatus: error.response.status,
         responseCode: body.response_code,
-        description: body.response_description,
+        description: serverMessage,
       });
     }
     throw error;
