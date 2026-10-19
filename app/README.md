@@ -130,10 +130,10 @@ When committing, Husky will run `lint-staged` ensuring all TypeScript and ESLint
 
 ## ▲ Vercel Deployment
 
-The repository-level `vercel.json` builds the Vite application from `app/`
-with the pnpm version declared in `package.json`. Keep the Vercel project
-**Root Directory** set to the repository root (leave it empty/default); the
-configuration supplies the install, build, output, and SPA rewrite settings.
+The repository-level `vercel.json` deploys the Vite application with the pnpm
+version declared in `app/package.json`. The Vercel project's **Root
+Directory** is `app`, so the install, build, and output paths in `vercel.json`
+are relative to `app/`; do not prefix them with `app/`.
 
 `vercel.json` also sets:
 
@@ -160,12 +160,11 @@ are not used by Vercel.
 
 ### First deployment
 
-1. Import the repository at [vercel.com/new](https://vercel.com/new) and keep
-   the Root Directory at the repository root.
+1. Import the repository at [vercel.com/new](https://vercel.com/new) and set
+   the **Root Directory** to `app`.
 2. Add `VITE_API_BASE_URL` for Production and Preview.
-3. Deploy. Vercel runs the install and build commands from `vercel.json`
-   (`cd app && corepack pnpm install --frozen-lockfile`, then
-   `cd app && corepack pnpm build`) and serves `app/dist`.
+3. Deploy. Vercel runs `pnpm install --frozen-lockfile` and `pnpm build` from
+   `app/`, then serves `app/dist`.
 
 Or deploy from the CLI:
 
@@ -174,8 +173,7 @@ npx vercel          # preview deployment
 npx vercel --prod   # production deployment
 ```
 
-Node 22 is pinned via `engines` in the root `package.json` and
-`app/package.json`.
+Node 22 is pinned via `engines` in `app/package.json`.
 
 `pnpm-lock.yaml` is intentionally committed for reproducible production
 installs. Do not add npm, Yarn, or Bun lockfiles alongside it.
