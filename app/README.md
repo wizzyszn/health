@@ -131,13 +131,22 @@ When committing, Husky will run `lint-staged` ensuring all TypeScript and ESLint
 ## ▲ Vercel Deployment
 
 The repository-level `vercel.json` builds the Vite application from `app/`
-with the pnpm version declared in `package.json`. Keep the Vercel project Root
-Directory set to the repository root; the configuration supplies the install,
-build, output, and SPA rewrite settings.
+with the pnpm version declared in `app/package.json`.
+
+- **Root Directory:** repository root (leave the field empty in Vercel; do not
+  select `app/`, otherwise `vercel.json` and `.vercelignore` are ignored).
+- **Install:** `cd app && corepack pnpm install --frozen-lockfile`
+- **Build:** `cd app && corepack pnpm build`
+- **Output:** `app/dist`
+
+The configuration also supplies SPA rewrites so client-side routes survive a
+refresh, plus long-lived caching for hashed assets and no-cache headers for the
+service worker and web manifest.
 
 Configure `VITE_API_BASE_URL` for both Preview and Production deployments in
 Vercel Project Settings → Environment Variables. It must point to the deployed
-API base URL, including its version prefix when required.
+API base URL, including its version prefix when required. `app/.env` is local
+only and is ignored by both Git and the Vercel upload.
 
 `pnpm-lock.yaml` is intentionally committed for reproducible production
 installs. Do not add npm, Yarn, or Bun lockfiles alongside it.
