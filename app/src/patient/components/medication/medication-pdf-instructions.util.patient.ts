@@ -14,7 +14,7 @@ export const GENERAL_MEDICATION_INSTRUCTIONS = [
   "Please ensure to purchase your medication immediately from the pharmacy.",
   "For your convenience, you can also request to have your medication delivered directly to you by using our app.",
   "The prescribed medications have been noted according to the allergy details you have provided. Please ensure your allergy information is kept up to date.",
-  "If you develop any adverse reactions to any of the prescribed medications, kindly seek immediate medical attention at the nearest hospital and report the reaction to Mediapp as soon as possible when safe to do so.",
+  "If you develop any adverse reactions to any of the prescribed medications, kindly seek immediate medical attention at the nearest hospital and report the reaction to Carelexa as soon as possible when safe to do so.",
 ];
 
 type MedicationOrderInstruction = {

@@ -90,7 +90,7 @@
 //         <p className="text-sm text-muted-foreground mb-4">
 //           By clicking confirm booking, you've agreed to{" "}
 //           <span className="text-foreground font-medium">
-//             MediApp's Consultant's terms
+//             Carelexa's Consultant's terms
 //           </span>
 //         </p>
 //         <div className="flex gap-3">

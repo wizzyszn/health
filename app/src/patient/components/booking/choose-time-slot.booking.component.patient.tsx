@@ -843,7 +843,7 @@ const ChooseTimeSlot = ({
       <div className="space-y-2.5">
         <label className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <Clock className="h-3.5 w-3.5 text-primary" />
-          Available Times
+          Available Start Times
         </label>
 
         {!selectedDate ? (
@@ -948,13 +948,13 @@ const ChooseTimeSlot = ({
                               interval,
                               slotInfo?.maxConsecutiveSlots ?? 1,
                             );
-                            const explanation = `only ${freeMinutes} min free here — you have an appointment at ${freeUntil}`;
+                            const explanation = `starting here leaves only ${freeMinutes} min before your appointment at ${freeUntil}`;
                             return (
                               <button
                                 key={interval}
                                 type="button"
                                 disabled
-                                title={`Only ${freeMinutes} min free here — you have an appointment at ${freeUntil}`}
+                                title={`Starting here leaves only ${freeMinutes} min before your appointment at ${freeUntil}`}
                                 aria-label={`${interval} — ${explanation}`}
                                 className="h-8 cursor-not-allowed rounded-md border border-dashed border-amber-300 bg-amber-50/60 text-[11px] font-medium text-amber-700/80"
                               >
@@ -1025,13 +1025,13 @@ const ChooseTimeSlot = ({
           <p className="mt-3 flex items-start gap-1.5 text-[11px] text-amber-700">
             <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
             <span>
-              Amber times are affected by appointments you already have.
+              Amber start times are affected by appointments you already have.
               {hasPatientDurationLimitOnSelectedDate && (
                 <>
                   {" "}
-                  Dashed times are free but too short for {durationBlocks *
-                    15}{" "}
-                  min because one begins right after.
+                  Dashed ones are free, but starting there leaves less than{" "}
+                  {durationBlocks * 15} min before your next appointment — start
+                  earlier or pick a shorter session.
                 </>
               )}
             </span>

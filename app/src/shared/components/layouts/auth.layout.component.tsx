@@ -7,22 +7,22 @@ interface AuthLayoutProps {
 const testimonials = [
   {
     quote:
-      "We love MEDIAPP! We had already heard great things about their care coordinators, so we knew exactly the level of professional support we were going to get",
+      "We love Carelexa! We had already heard great things about their care coordinators, so we knew exactly the level of professional support we were going to get",
     name: "Tom Wilson",
   },
   {
     quote:
-      "MediApp transformed the way we manage patient records. The interface is intuitive, and the support team is always there when we need them.",
+      "Carelexa transformed the way we manage patient records. The interface is intuitive, and the support team is always there when we need them.",
     name: "Sarah Chen",
   },
   {
     quote:
-      "Since switching to MediApp, our clinic's efficiency has improved by 40%. It's the best investment we've made for our practice.",
+      "Since switching to Carelexa, our clinic's efficiency has improved by 40%. It's the best investment we've made for our practice.",
     name: "Dr. James Rivera",
   },
   {
     quote:
-      "The scheduling features alone saved us countless hours each week. MediApp truly understands the needs of healthcare professionals.",
+      "The scheduling features alone saved us countless hours each week. Carelexa truly understands the needs of healthcare professionals.",
     name: "Emily Nakamura",
   },
 ];
@@ -55,7 +55,7 @@ function AuthLayout({ children }: AuthLayoutProps) {
         <div className="hidden lg:flex lg:w-[35%] relative overflow-hidden">
           <img
             src={bgImage}
-            alt="Happy MediApp user"
+            alt="Happy Carelexa user"
             className="absolute inset-0 w-full h-full object-contain object-left-top"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#080911] via-[#171A2E]/30 to-transparent" />

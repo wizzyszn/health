@@ -60,6 +60,7 @@ import {
   type ReferralModalValues,
   type ReferralRowValues,
 } from "@/lib/validation-schemas";
+import { mapReferralFormToPayload } from "@/lib/referral-payload";
 import {
   APPROVED_HOSPITALS,
   REFERRAL_SPECIALTIES,
@@ -85,28 +86,6 @@ const EMPTY_NEW_REFERRAL: Partial<ReferralFormValues> = {
   referral_details: "",
   current_medications: "",
 };
-
-function mapReferralFormToPayload(
-  values: ReferralFormValues,
-  assignToPatient: boolean,
-) {
-  return {
-    specialty: values.specialty?.trim() || undefined,
-    specialist_name: values.specialist_name,
-    hospital: values.hospital,
-    hospital_address:
-      values.hospital_address && values.hospital_address.length > 0
-        ? values.hospital_address
-        : undefined,
-    attachment_investigation_ids:
-      values.attachment_investigation_ids &&
-      values.attachment_investigation_ids.length > 0
-        ? values.attachment_investigation_ids
-        : undefined,
-    referral_details: values.referral_details,
-    assign_to_patient: assignToPatient,
-  };
-}
 
 function mapApiReferralToRow(
   referral: Awaited<

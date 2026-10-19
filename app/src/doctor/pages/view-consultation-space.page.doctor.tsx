@@ -240,8 +240,7 @@ function ConsultationSpace() {
                           Video consultation ready
                         </p>
                         <p className="mt-1 max-w-[42ch] text-xs text-gray-500">
-                          Start the video call with your patient. Joins open 10
-                          minutes before the scheduled start time.
+                          Start the video call with your patient.
                         </p>
                       </div>
                       <Button

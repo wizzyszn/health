@@ -266,8 +266,9 @@ function DoctorAppointmentDetails() {
         );
         return;
       }
-      // Too EARLY — guide the doctor to the exact opening time (spec §5:
-      // joins open 10 minutes before the scheduled start).
+      // Too EARLY — tell the doctor when the appointment starts. Do not quote
+      // the join window's lead time: doctors read it as "the call starts then"
+      // and turn up expecting the patient to already be there.
       if (isOutsideJoinWindow(error) || isScheduledTimeError(error)) {
         const scheduledTime = extractScheduledTimeFromError(error);
         const timeMessage = scheduledTime
@@ -275,8 +276,8 @@ function DoctorAppointmentDetails() {
           : null;
         toast.warning(
           timeMessage
-            ? `This appointment starts at ${timeMessage}. You can join 10 minutes before then.`
-            : "This session isn't open yet. Joins open 10 minutes before the scheduled start time.",
+            ? `This appointment starts at ${timeMessage}.`
+            : "This session isn't open yet. Please try again at the scheduled start time.",
         );
         return;
       }
