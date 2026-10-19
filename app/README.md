@@ -133,11 +133,15 @@ When committing, Husky will run `lint-staged` ensuring all TypeScript and ESLint
 The repository-level `vercel.json` builds the Vite application from `app/`
 with the pnpm version declared in `app/package.json`.
 
-- **Root Directory:** repository root (leave the field empty in Vercel; do not
-  select `app/`, otherwise `vercel.json` and `.vercelignore` are ignored).
-- **Install:** `cd app && corepack pnpm install --frozen-lockfile`
-- **Build:** `cd app && corepack pnpm build`
-- **Output:** `app/dist`
+- **Root Directory:** repository root (leave the field empty in Vercel).
+- **Install:** `corepack pnpm install --frozen-lockfile` in `app/`
+- **Build:** `corepack pnpm build` in `app/`
+- **Output:** `dist` from the `app/` build (copied to the repository root when
+  Vercel runs the commands from there)
+
+The install and build commands detect whether they are running at the
+repository root or from inside `app/`, so both configurations work. Leaving
+the Root Directory blank is still the recommended setup.
 
 The configuration also supplies SPA rewrites so client-side routes survive a
 refresh, plus long-lived caching for hashed assets and no-cache headers for the

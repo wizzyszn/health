@@ -1,10 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "installCommand": "cd app && HUSKY=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile",
-  "buildCommand": "cd app && corepack pnpm build",
-  "devCommand": "cd app && corepack pnpm dev",
-  "outputDirectory": "app/dist",
+  "installCommand": "if [ ! -f package.json ] && [ -d app ]; then cd app; fi && HUSKY=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile",
+  "buildCommand": "if [ -f package.json ]; then corepack pnpm build; else cd app && corepack pnpm build && cd .. && rm -rf dist && cp -R app/dist dist; fi",
+  "devCommand": "if [ ! -f package.json ] && [ -d app ]; then cd app; fi && corepack pnpm dev",
+  "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
