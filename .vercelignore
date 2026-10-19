@@ -1,0 +1,16 @@
+# Vercel only needs the source tree and lockfile.
+.git
+.freebuff
+.hermes
+
+app/node_modules
+app/dist
+app/dev-dist
+
+# Local overrides must never reach the build. Configure variables in the
+# Vercel dashboard instead.
+app/.env
+app/.env.*
+!app/.env.example
+
+app/tsconfig.tsbuildinfo
