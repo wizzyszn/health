@@ -11,6 +11,12 @@ import type {
   DailyTelehealthRole,
   DailyVideoSession,
 } from "./daily-video-room.types";
+import {
+  describeDailyCameraError,
+  describeMediaAccessError,
+  type MediaAccessErrorDetails,
+  type MediaAccessPreferences,
+} from "./media-access.util";
 import { isSessionAlreadyClosed } from "@/shared/utils/video-session-errors.util";
 
 interface DailyParticipantLike {
@@ -59,6 +65,8 @@ export function useDailyVideoRoom(
   appointmentId: string,
   /** Called when auto-rejoin exhausts — the session payload is likely stale. */
   onSessionStale?: () => void,
+  /** Media the pre-call gate confirmed (falls back to the role defaults). */
+  initialPreferences?: MediaAccessPreferences,
 ) {
   const [callObject] = useState(
     () => DailyIframe.getCallInstance() || DailyIframe.createCallObject(),
@@ -66,11 +74,35 @@ export function useDailyVideoRoom(
   const [connectionStatus, setConnectionStatus] =
     useState<DailyConnectionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<MediaAccessErrorDetails | null>(
+    null,
+  );
+  const [isCameraFlipping, setIsCameraFlipping] = useState(false);
   const [participants, setParticipants] = useState<DailyParticipantTile[]>([]);
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
   const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(false);
   const [joinNonce, setJoinNonce] = useState(0);
   const [peerLeftNotice, setPeerLeftNotice] = useState<string | null>(null);
+
+  /**
+   * Keep the user's intended media state across auto-rejoins. Syncing this
+   * from Daily's actual track state would silently mute someone who dropped
+   * while their permission prompt was still pending.
+   */
+  const mediaPreferencesRef = useRef<MediaAccessPreferences>(
+    initialPreferences ?? {
+      audio: !DEFAULT_MEDIA_BY_ROLE[role].startAudioOff,
+      video: !DEFAULT_MEDIA_BY_ROLE[role].startVideoOff,
+    },
+  );
+
+  const joinMediaOptions = useCallback(() => {
+    const preferences = mediaPreferencesRef.current;
+    return {
+      startAudioOff: !preferences.audio,
+      startVideoOff: !preferences.video,
+    };
+  }, []);
 
   /** True between an unexpected drop/fatal error and a successful rejoin. */
   const autoRejoinArmedRef = useRef(false);
@@ -210,13 +242,19 @@ export function useDailyVideoRoom(
             url: activeSession.roomUrl,
             token: activeSession.token,
             userName: displayName,
-            ...DEFAULT_MEDIA_BY_ROLE[role],
+            ...joinMediaOptions(),
           })
           .then(() => syncParticipants())
           .catch(() => runAutoRejoin());
       }, delayMs);
     },
-    [callObject, displayName, role, syncParticipants, clearRejoinTimer],
+    [
+      callObject,
+      displayName,
+      syncParticipants,
+      clearRejoinTimer,
+      joinMediaOptions,
+    ],
   );
 
   const joinMeeting = useCallback(async () => {
@@ -241,7 +279,7 @@ export function useDailyVideoRoom(
         url: activeSession.roomUrl,
         token: activeSession.token,
         userName: displayName,
-        ...DEFAULT_MEDIA_BY_ROLE[role],
+        ...joinMediaOptions(),
       });
       syncParticipants();
     } catch (error) {
@@ -252,7 +290,7 @@ export function useDailyVideoRoom(
           : "Unable to join the video room.",
       );
     }
-  }, [callObject, displayName, role, syncParticipants]);
+  }, [callObject, displayName, syncParticipants, joinMediaOptions]);
 
   useEffect(() => {
     const countRemotes = (): number =>
@@ -336,13 +374,16 @@ export function useDailyVideoRoom(
       }
     };
 
-    const handleCameraError = (event: { errorMsg?: { errorMsg: string } }) => {
-      // Permission denial etc. — NOT recoverable by rejoining.
-      setConnectionStatus("error");
-      setErrorMessage(
-        event?.errorMsg?.errorMsg ||
-          "Camera/microphone unavailable. Check browser permissions.",
+    const handleCameraError = (
+      event: Parameters<typeof describeDailyCameraError>[0],
+    ) => {
+      // Permission, device, or "in use" errors do NOT mean the call is
+      // over. Keep the room connected (audio/video may still work) and
+      // surface actionable recovery instead of a fatal connection state.
+      setMediaError(
+        describeDailyCameraError(event, mediaPreferencesRef.current),
       );
+      syncParticipants();
     };
 
     const handleLeft = () => {
@@ -394,17 +435,62 @@ export function useDailyVideoRoom(
 
   const toggleCamera = useCallback(async () => {
     const nextValue = !callObject.localVideo();
-    await callObject.setLocalVideo(nextValue);
-    setIsCameraEnabled(nextValue);
-    syncParticipants();
+    mediaPreferencesRef.current = {
+      ...mediaPreferencesRef.current,
+      video: nextValue,
+    };
+    setMediaError(null);
+
+    try {
+      await callObject.setLocalVideo(nextValue);
+    } catch (error) {
+      setMediaError(
+        describeMediaAccessError(error, { audio: false, video: true }),
+      );
+    } finally {
+      syncParticipants();
+    }
   }, [callObject, syncParticipants]);
 
   const toggleMicrophone = useCallback(async () => {
     const nextValue = !callObject.localAudio();
-    await callObject.setLocalAudio(nextValue);
-    setIsMicrophoneEnabled(nextValue);
-    syncParticipants();
+    mediaPreferencesRef.current = {
+      ...mediaPreferencesRef.current,
+      audio: nextValue,
+    };
+    setMediaError(null);
+
+    try {
+      await callObject.setLocalAudio(nextValue);
+    } catch (error) {
+      setMediaError(
+        describeMediaAccessError(error, { audio: true, video: false }),
+      );
+    } finally {
+      syncParticipants();
+    }
   }, [callObject, syncParticipants]);
+
+  /** Switch between front and rear cameras on phones/tablets. */
+  const flipCamera = useCallback(async () => {
+    if (isCameraFlipping || !callObject.localVideo()) return;
+
+    setIsCameraFlipping(true);
+    setMediaError(null);
+
+    try {
+      await callObject.cycleCamera({ preferDifferentFacingMode: true });
+    } catch (error) {
+      setMediaError(
+        describeMediaAccessError(error, { audio: false, video: true }),
+      );
+    } finally {
+      setIsCameraFlipping(false);
+      syncParticipants();
+    }
+  }, [callObject, isCameraFlipping, syncParticipants]);
+
+  const clearMediaError = useCallback(() => setMediaError(null), []);
 
   const leaveMeeting = useCallback(async () => {
     clearRejoinTimer();
@@ -419,6 +505,7 @@ export function useDailyVideoRoom(
     autoRejoinArmedRef.current = false;
     rejoinAttemptsRef.current = 0;
     setErrorMessage(null);
+    setMediaError(null);
     setParticipants([]);
     setJoinNonce((value) => value + 1);
   }, [clearRejoinTimer]);
@@ -437,11 +524,15 @@ export function useDailyVideoRoom(
     callObject,
     connectionStatus,
     errorMessage,
+    mediaError,
     peerLeftNotice,
     isCameraEnabled,
+    isCameraFlipping,
     isMicrophoneEnabled,
     localParticipant,
     remoteParticipants,
+    clearMediaError,
+    flipCamera,
     leaveMeeting,
     retryJoin,
     toggleCamera,

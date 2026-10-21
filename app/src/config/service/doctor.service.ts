@@ -208,6 +208,7 @@ export const getDoctorPatientsReq = (param?: {
         email: string;
         phone_number: string;
         registration_no?: string;
+        mrn?: string;
         has_consultation_with_doctor: boolean;
       }>;
       meta: {
@@ -416,6 +417,7 @@ export const getSingleDoctorAppointmentReq = (appointmentId: string) => {
         gender: string;
         marital_status: string;
         occupation: string;
+        mrn?: string;
         profile_picture_url: string;
       };
       doctor_id: string;
@@ -424,6 +426,8 @@ export const getSingleDoctorAppointmentReq = (appointmentId: string) => {
       timezone_snapshot: string;
       status: DoctorAppointmentStatus;
       reason_for_visit: string;
+      reason_for_appointment?: string;
+      complaint_details?: string;
       Medical_conditions?: unknown[];
       allergies?: unknown[];
       booking_profile_snapshot: {
@@ -1080,6 +1084,7 @@ export const getDoctorSchedules = (param: {
           last_name: string;
           full_name: string;
           email: string;
+          mrn?: string;
         };
         scheduled_start_at_utc: string;
         scheduled_end_at_utc: string;

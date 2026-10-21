@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAConsultationsForDoc } from "@/config/service/doctor.service";
 import { formatZonedDate, formatZonedTimeRange } from "@/lib/utils";
+import { displayMrn } from "@/lib/mrn";
 import { ConsultationPreview } from "./consultation-preview.component.doctor";
 import { ConsultationStatusBadge } from "./consultation-status-badge.component.doctor";
 import { AppointmentStatusBadge } from "./appointment-status-badge.component.doctor";
@@ -143,7 +144,6 @@ function ConsultationDetailsSummary({
   TypeIcon: typeof Video;
 }) {
   const appointment = consultation.appointment_id;
-  const bookingSnapshot = appointment?.booking_profile_snapshot;
   const doctorName = resolveDoctorName(consultation, historyDoctor);
   const doctorSpecializations = resolveDoctorSpecializations(
     consultation,
@@ -156,15 +156,14 @@ function ConsultationDetailsSummary({
 
   const patientName =
     consultation.user_id?.full_name || appointment?.patient_id?.full_name;
-  const patientMrn = consultation.user_id?.mrn;
+  const patientMrn = displayMrn(consultation.user_id?.mrn);
   const patientProfilePicture =
     consultation.user_id?.profile_picture_url ||
     appointment?.patient_id?.profile_picture_url;
 
   const hasVisitDetails =
-    appointment?.reason_for_visit ||
+    appointment?.reason_for_appointment ||
     appointment?.complaint_details ||
-    bookingSnapshot?.reason_for_appointment ||
     appointment?.allergies?.length ||
     appointment?.Medical_conditions?.length;
 
@@ -235,11 +234,9 @@ function ConsultationDetailsSummary({
                 <p className="text-sm text-[#374151] font-medium">
                   {patientName}
                 </p>
-                {patientMrn && (
-                  <p className="text-xs text-[#6B7280] mt-0.5">
-                    MRN: {patientMrn}
-                  </p>
-                )}
+                <p className="text-xs text-[#6B7280] mt-0.5">
+                  MRN: {patientMrn}
+                </p>
               </div>
             </div>
           </div>
@@ -269,12 +266,8 @@ function ConsultationDetailsSummary({
         <div className="border-t border-[#E5E7EB] pt-5">
           <SummarySection title="Visit Details">
             <InfoItem
-              label="Reason for Visit"
-              value={appointment?.reason_for_visit}
-            />
-            <InfoItem
               label="Reason for Appointment (visit)"
-              value={bookingSnapshot?.reason_for_appointment}
+              value={appointment?.reason_for_appointment}
             />
             <InfoItem
               label="Complaint Details"

@@ -86,6 +86,11 @@ const sideNavOptions: SideNavOption[] = [
     Icon: createLucideNavIcon(BookUser),
   },
   {
+    url: "/patient/dashboard/investigation",
+    title: "Investigations",
+    Icon: createLucideNavIcon(FlaskConical),
+  },
+  {
     url: "/patient/dashboard/medications",
     title: "Medications",
     Icon: createLucideNavIcon(Pill),
@@ -94,11 +99,6 @@ const sideNavOptions: SideNavOption[] = [
     url: "/patient/dashboard/referrals",
     title: "Referrals",
     Icon: createLucideNavIcon(Share2),
-  },
-  {
-    url: "/patient/dashboard/investigation",
-    title: "Investigations",
-    Icon: createLucideNavIcon(FlaskConical),
   },
   {
     url: "notifications",

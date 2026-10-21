@@ -66,6 +66,7 @@ function GoogleOauth() {
               last_name: profile.last_name,
               email: profile.email,
               phone_number: profile.phone_number,
+              mrn: profile.mrn,
               provider: "google",
               active: true,
               createdAt: "",

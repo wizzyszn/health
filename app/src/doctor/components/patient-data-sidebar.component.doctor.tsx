@@ -20,6 +20,7 @@ import {
   type InvestigationResultPreviewContext,
 } from "./investigation-result-preview-sheet.component.doctor";
 import { ReferralHistoryPreviewSheet } from "./referral-history-preview-sheet.component.doctor";
+import { displayMrn } from "@/lib/mrn";
 
 // interface ReferralRecord {
 //   date: string;
@@ -45,6 +46,7 @@ interface PatientSidebarProps {
     last_name?: string;
     id?: string;
     _id?: string;
+    mrn?: string;
     date_of_birth?: string;
     address?: string;
     marital_status?: string;
@@ -247,9 +249,7 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
                 : "Loading..."}
             </h2>
             <p className="text-[#6B7280] text-sm md:text-[15px]">
-              {patient?.id
-                ? `MRN-${patient.id.slice(-6).toUpperCase()}`
-                : "Loading..."}
+              {patient ? `MRN: ${displayMrn(patient.mrn)}` : "Loading..."}
             </p>
           </div>
         </div>

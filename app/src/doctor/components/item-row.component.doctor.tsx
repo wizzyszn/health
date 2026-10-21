@@ -39,7 +39,7 @@ export function ItemRow({
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1 md:gap-1.5 text-[10px] md:text-xs text-[#6C6C6C]">
             <span className="whitespace-nowrap truncate max-w-[100px] sm:max-w-none">
-              Ref: {item.ref}
+              {item.refLabel ?? "Ref"}: {item.ref}
             </span>
             {item.time && (
               <>

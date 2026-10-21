@@ -29,7 +29,7 @@ type PatientAppointmentProfileSnapshot = {
   gender: string;
   marital_status: string;
   occupation: string;
-  reason_for_appointment: string;
+  reason_for_appointment?: string;
 };
 
 type PatientAppointmentPatient = {
@@ -62,6 +62,8 @@ type PatientAppointmentRescheduledHistoryItem = {
   timezone_snapshot: string;
   status: PatientAppointmentStatus;
   reason_for_visit: string;
+  reason_for_appointment?: string;
+  complaint_details?: string;
   Medical_conditions?: string[];
   allergies?: string[];
   booking_profile_snapshot: PatientAppointmentProfileSnapshot;
@@ -299,6 +301,11 @@ export const getAConsultation = (consultationId: string) => {
         timezone_snapshot: string;
         status: string;
         reason_for_visit: string;
+        reason_for_appointment?: string;
+        complaint_details?: string;
+        booking_profile_snapshot?: {
+          reason_for_appointment?: string;
+        };
       };
       type: "VIDEO" | "CHAT" | "AUDIO" | "MEETADOCTOR" | "HOMESERVICE";
       user_id: string;
@@ -429,7 +436,9 @@ export const getSingleMedicationReq = (id: string) => {
 // ─── Profile ──────────────────────────────────────────────────────────────────
 
 export const getPatientProfileReq = () => {
-  const url = urlGenerator("patients", "me", false);
+  // Use the full profile: the lightweight /patients/me summary omits medical
+  // fields and is not sufficient for the profile page or referral PDFs.
+  const url = urlGenerator("patients", "me/profile", false);
   return requestHandler<GeneralReturnInt<PatientProfileInterface>>(
     url,
     options("GET", null, true),
@@ -605,6 +614,8 @@ export const getAppointmentsReq = (param: {
         scheduled_end_at_utc: string;
         timezone_snapshot: string;
         reason_for_visit: string;
+        reason_for_appointment?: string;
+        complaint_details?: string;
         booking_profile_snapshot: {
           first_name: string;
           last_name: string;
@@ -612,7 +623,7 @@ export const getAppointmentsReq = (param: {
           gender: string;
           marital_status: string;
           occupation: string;
-          reason_for_appointment: string;
+          reason_for_appointment?: string;
         };
         consultation_id: string;
         status: PatientAppointmentStatus;
@@ -713,6 +724,8 @@ export const getSingleAppointmentReq = (id: string) => {
       timezone_snapshot: string;
       status: PatientAppointmentStatus;
       reason_for_visit: string;
+      reason_for_appointment?: string;
+      complaint_details?: string;
       booking_profile_snapshot: {
         first_name: string;
         last_name: string;
@@ -720,7 +733,7 @@ export const getSingleAppointmentReq = (id: string) => {
         gender: string;
         marital_status: string;
         occupation: string;
-        reason_for_appointment: string;
+        reason_for_appointment?: string;
       };
       consultation_id: {
         _id: string;
@@ -916,7 +929,6 @@ export const bookAnAppointmentReq = (data: {
   scheduled_start_local: string;
   timezone: string;
   requested_duration_minutes: 15 | 30 | 45 | 60;
-  reason_for_visit?: string;
   confirm_appointment: boolean;
   consultation_type?:
     | "VIDEO"
@@ -955,6 +967,8 @@ export const bookAnAppointmentReq = (data: {
         | "FORFEITED"
         | "RESCHEDULED";
       reason_for_visit: string;
+      reason_for_appointment?: string;
+      complaint_details?: string;
       booking_profile_snapshot: {
         first_name: string;
         last_name: string;
@@ -962,7 +976,7 @@ export const bookAnAppointmentReq = (data: {
         gender: string;
         marital_status: string;
         occupation: string;
-        reason_for_appointment: string;
+        reason_for_appointment?: string;
       };
     }>
   >(url, options("POST", formattedData, true));

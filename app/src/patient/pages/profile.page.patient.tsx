@@ -43,6 +43,7 @@ import { logout, setTimezone } from "@/config/stores/slices/auth.slice";
 import Spinner from "@/shared/components/spinner.component";
 import { TagChipInput } from "@/shared/components/tag-chip-input.component.shared";
 import SEO from "@/shared/components/seo.component";
+import { displayMrn } from "@/lib/mrn";
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
@@ -133,14 +134,12 @@ function ProfileAvatar({
   first_name,
   last_name,
   img,
-  _id,
   mrn,
   preview,
 }: {
   first_name: string;
   last_name: string;
   img?: string | null;
-  _id: string;
   mrn?: string;
   preview?: string | null;
 }) {
@@ -174,8 +173,8 @@ function ProfileAvatar({
           {first_name} {last_name}
         </span>
         <div className="p-1 bg-[#F7F7F7] text-[10px] rounded-sm">
-          <span>{mrn ? "MRN: " : "ID: "}</span>
-          <span className="font-medium">{mrn || _id}</span>
+          <span>MRN: </span>
+          <span className="font-medium">{displayMrn(mrn)}</span>
         </div>
       </div>
     </div>
@@ -479,7 +478,6 @@ export default function PatientProfile() {
               first_name={profile.first_name}
               last_name={profile.last_name}
               img={profile.profile_picture_url}
-              _id={profile.registration_no}
               mrn={profile.mrn}
               preview={previewImage}
             />

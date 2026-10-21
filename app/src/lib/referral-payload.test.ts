@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { mapReferralFormToPayload } from "./referral-payload";
+import { referralFormSchema } from "./validation-schemas";
 import type { ReferralFormValues } from "./validation-schemas";
 
 const baseValues = (
   over: Partial<ReferralFormValues> = {},
 ): ReferralFormValues => ({
   specialist_name: "Dr. Okoh",
+  specialty: "Cardiologist",
   hospital: "Lagos University Teaching Hospital",
   referral_details: "Persistent chest pain.",
   ...over,
@@ -38,6 +40,28 @@ describe("mapReferralFormToPayload", () => {
     );
 
     expect(payload.current_medications).toBe("");
+  });
+
+  it("keeps specialist_name optional", () => {
+    const payload = mapReferralFormToPayload(
+      baseValues({ specialist_name: "  " }),
+      true,
+    );
+
+    expect(payload.specialist_name).toBe("");
+  });
+
+  it("requires specialty but allows a missing specialist name", () => {
+    const required = {
+      specialty: "Dermatologist",
+      hospital: "Lagos University Teaching Hospital",
+      referral_details: "Persistent rash.",
+    };
+
+    expect(referralFormSchema.safeParse(required).success).toBe(true);
+    expect(
+      referralFormSchema.safeParse({ ...required, specialty: "" }).success,
+    ).toBe(false);
   });
 
   it("keeps the other field mappings unchanged", () => {

@@ -111,7 +111,7 @@ export default function ViewReferralDetails() {
             [profile.first_name, profile.middle_name, profile.last_name]
               .filter(Boolean)
               .join(" ") || "—",
-          mrn: profile.registration_no,
+          mrn: profile.mrn,
           dateOfBirth: profile.date_of_birth,
           gender: profile.gender || undefined,
           phone: profile.phone_number,

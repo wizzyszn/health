@@ -129,7 +129,7 @@ function drawRecipientBlock(
     ...(data.recipient.specialty ? [data.recipient.specialty] : []),
     data.recipient.hospital,
     ...data.recipient.addressLines,
-  ];
+  ].filter((line) => line.trim().length > 0);
   lines.forEach((line) => {
     doc.text(line, MARGIN, y);
     y += 5;

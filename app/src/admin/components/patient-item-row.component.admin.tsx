@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { AdminPatient } from "@/admin/types/admin.types";
+import { displayMrn } from "@/lib/mrn";
 
 interface AdminPatientItemRowProps {
   patient: AdminPatient;
@@ -28,7 +29,7 @@ export default function AdminPatientItemRow({
             {patient.full_name}
           </p>
           <div className="mt-1 flex flex-wrap gap-2 text-xs text-[#6C6C6C]">
-            <span>{patient.registration_no || "No ID"}</span>
+            <span>MRN: {displayMrn(patient.mrn)}</span>
             <span>•</span>
             <span>{patient.email}</span>
             <span>•</span>

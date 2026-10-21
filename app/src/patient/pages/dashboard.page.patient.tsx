@@ -24,6 +24,7 @@ import {
   getWeeklyAppointmentsReq,
 } from "@/config/service/patient.service";
 import SEO from "@/shared/components/seo.component";
+import { normalizeMrn } from "@/lib/mrn";
 
 const METRICS_MAPPER = {
   consultations: {
@@ -55,6 +56,13 @@ const METRICS_MAPPER = {
     subtitle: "Assigned in open consultations",
   },
 } as const;
+
+const METRIC_ORDER: (keyof PatientDashMetrics)[] = [
+  "consultations",
+  "investigations",
+  "medications",
+  "appointments",
+];
 
 const DEFAULT_METRICS: PatientDashMetrics = {
   consultations: 0,
@@ -114,15 +122,13 @@ function PatientDash() {
   });
 
   const metrics = data?.data ?? DEFAULT_METRICS;
-  const mrn = profileData?.data?.mrn || user?.user?.mrn;
+  const mrn = normalizeMrn(profileData?.data?.mrn ?? user?.user?.mrn);
 
-  const values = Object.entries(metrics).map(([key, value]) => {
-    const k = key as keyof typeof METRICS_MAPPER;
-
+  const values = METRIC_ORDER.map((k) => {
     return {
       ...METRICS_MAPPER[k],
       label: k.charAt(0).toUpperCase() + k.slice(1),
-      value,
+      value: metrics[k],
     };
   });
 

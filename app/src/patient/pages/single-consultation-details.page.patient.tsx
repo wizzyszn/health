@@ -18,6 +18,10 @@ import {
   formatZonedTimeRange,
   getApiErrorMessage,
 } from "@/lib/utils";
+import {
+  getBookingComplaintDetails,
+  getBookingReasonForAppointment,
+} from "@/shared/utils/appointment-booking-fields.util";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   CONSULTATION_CONFIG,
@@ -257,7 +261,7 @@ function ViewConsultationDetails() {
             [profile.first_name, profile.middle_name, profile.last_name]
               .filter(Boolean)
               .join(" ") || "—",
-          mrn: profile.registration_no,
+          mrn: profile.mrn,
           dateOfBirth: profile.date_of_birth,
           gender: profile.gender || undefined,
           phone: profile.phone_number,
@@ -318,9 +322,12 @@ function ViewConsultationDetails() {
           doctorFirstName={consultation.doctor_id?.first_name}
           doctorFullName={consultation.doctor_id?.full_name}
           doctorSpecializations={consultation.doctor_id?.specializations}
-          appointmentReasonForVisit={
-            consultation.appointment_id?.reason_for_visit
-          }
+          appointmentReasonForVisit={getBookingReasonForAppointment(
+            consultation.appointment_id,
+          )}
+          appointmentComplaintDetails={getBookingComplaintDetails(
+            consultation.appointment_id,
+          )}
           displayDate={displayDate}
           displayTime={displayTime}
           TypeIcon={config.icon}

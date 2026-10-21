@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import SendIcon from "@/shared/components/svgs/icons/send.icon";
 
 import { ReferralGroup, ReferralItem } from "./referral.types.patient";
+import { getReferralGroupTitle } from "./referral-group.util.patient";
 
 /* ─── Individual referral row (shown when group is expanded) ─── */
 
@@ -72,7 +73,7 @@ export function ReferralGroupCard({
 }) {
   const consultationId = group.consultation?._id || `unknown-${index}`;
 
-  const consultationTitle = group.consultation?.title || "Consultation";
+  const groupTitle = getReferralGroupTitle(group);
 
   const consultationDate = group.consultation?.createdAt
     ? new Date(group.consultation.createdAt).toLocaleDateString("en-US", {
@@ -98,7 +99,7 @@ export function ReferralGroupCard({
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium sm:text-sm">
-              {consultationTitle}
+              {groupTitle}
             </p>
 
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-[#6C6C6C] sm:text-xs md:text-sm">

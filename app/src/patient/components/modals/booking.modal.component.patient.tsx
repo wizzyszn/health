@@ -43,6 +43,10 @@ import {
   STEP_FIELDS,
 } from "@/patient/lib/schemas";
 import { formatLocalDateTime, getBrowserTimeZone } from "@/lib/utils";
+import {
+  getBookingComplaintDetails,
+  getBookingReasonForAppointment,
+} from "@/shared/utils/appointment-booking-fields.util";
 
 const STEP_TITLES = [
   "Personal Details",
@@ -138,8 +142,8 @@ const appointmentToFormData = (
     gender: data.booking_profile_snapshot?.gender || "",
     maritalStatus: data.booking_profile_snapshot?.marital_status || "",
     occupation: data.booking_profile_snapshot?.occupation || "",
-    reasonForAppointment: data.reason_for_visit || "",
-    complaintDetails: "",
+    reasonForAppointment: getBookingReasonForAppointment(data),
+    complaintDetails: getBookingComplaintDetails(data),
     medicalConditions: [],
     allergies: [],
     doctorId: data.doctor_id?._id || "",
@@ -262,7 +266,6 @@ const buildPayload = (data: BookingFormData) => {
     scheduled_start_local: formatLocalDateTime(naiveStart),
     timezone: timeZone,
     requested_duration_minutes: durationMinutes,
-    reason_for_visit: data.reasonForAppointment,
     confirm_appointment: true as const,
     consultation_type: data.consultationType as
       | "VIDEO"
@@ -299,6 +302,8 @@ export type BookingResponse = {
   timezone_snapshot: string;
   status: string;
   reason_for_visit: string;
+  reason_for_appointment?: string;
+  complaint_details?: string;
   booking_profile_snapshot: {
     first_name: string;
     last_name: string;
@@ -306,7 +311,7 @@ export type BookingResponse = {
     gender: string;
     marital_status: string;
     occupation: string;
-    reason_for_appointment: string;
+    reason_for_appointment?: string;
   };
 };
 

@@ -1,4 +1,5 @@
 import { PatientProfileInterface } from "@/lib/types";
+import { displayMrn } from "@/lib/mrn";
 
 interface AdminPatientDetailProps {
   patient: PatientProfileInterface;
@@ -40,7 +41,7 @@ export default function AdminPatientDetail({
               {fullName}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {patient.registration_no || "Patient ID not available"}
+              MRN: {displayMrn(patient.mrn)}
             </p>
           </div>
         </div>
@@ -91,6 +92,10 @@ export default function AdminPatientDetail({
             <div>
               <p className="font-medium text-foreground">Age</p>
               <p>{age || "N/A"}</p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">MRN</p>
+              <p>{displayMrn(patient.mrn)}</p>
             </div>
             <div>
               <p className="font-medium text-foreground">Registration #</p>

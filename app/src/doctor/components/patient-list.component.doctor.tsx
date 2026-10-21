@@ -5,6 +5,7 @@ import { formatZonedTime } from "@/lib/utils";
 import { ItemRow } from "./item-row.component.doctor";
 import { useSelector } from "react-redux";
 import { RootState } from "@/config/stores/store";
+import { displayMrn } from "@/lib/mrn";
 
 export interface DoctorPatient {
   _id: string;
@@ -14,6 +15,7 @@ export interface DoctorPatient {
   email: string;
   phone_number: string;
   registration_no?: string;
+  mrn?: string;
   createdAt?: string;
   profile_picture_url?: string;
   consultation_id: string | null;
@@ -61,7 +63,8 @@ export function PatientList({
                 patientName:
                   patient.full_name ||
                   `${patient.first_name} ${patient.last_name}`,
-                ref: patient.registration_no || "N/A",
+                ref: displayMrn(patient.mrn),
+                refLabel: "MRN",
                 date: {
                   day: joinedDate.getDate(),
                   month: joinedDate.toLocaleString("default", {

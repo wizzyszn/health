@@ -41,9 +41,11 @@ import {
   isJoinWindowEnded,
   isRoomNotOpenYet,
 } from "@/shared/utils/video-session-errors.util";
+import {
+  getBookingComplaintDetails,
+  getBookingReasonForAppointment,
+} from "@/shared/utils/appointment-booking-fields.util";
 import type { Patient, RejectedPayload } from "@/lib/types";
-import ReactQuill from "react-quill-new";
-import "react-quill-new/dist/quill.bubble.css";
 import { AppointmentStatusBadge } from "@/patient/components/appointment-status-badge.component.patient";
 import useUrlSearchParams from "@/shared/hooks/use-url-search-params";
 import { VideoCall } from "@/shared/components/video-call.component";
@@ -261,6 +263,8 @@ const AppointmentDetails = () => {
   const doctorImage =
     appointment.doctor_id?.profile_picture_url ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${appointment.doctor_id?.first_name || "Doctor"}`;
+  const reasonForAppointment = getBookingReasonForAppointment(appointment);
+  const complaintDetails = getBookingComplaintDetails(appointment);
 
   const handleJoin = async () => {
     // Refresh the session token so we evaluate the current join eligibility.
@@ -404,23 +408,37 @@ const AppointmentDetails = () => {
           {/* Divider */}
           <div className="border-t border-border mb-6" />
 
-          {/* Reason for Visit */}
+          {/* Reason for Appointment (visit) */}
           <div className="mb-4 md:mb-6">
             <div className="flex items-center gap-2 mb-2 md:mb-3">
               <Stethoscope className="w-4 h-4" color="#6C6C6C" />
               <span className="text-sm font-semibold text-foreground">
-                Reason for Visit
+                Reason for Appointment (visit)
               </span>
             </div>
-            <div className="ml-0 md:ml-6 rounded-lg border border-border bg-[#F7F7F7] overflow-hidden">
-              <ReactQuill
-                value={appointment.reason_for_visit || "No reason provided"}
-                readOnly
-                theme="bubble"
-                modules={{ toolbar: false }}
-              />
+            <div className="ml-0 md:ml-6 rounded-lg border border-border bg-[#F7F7F7] px-3 py-2">
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+                {reasonForAppointment || "No reason provided"}
+              </p>
             </div>
           </div>
+
+          {/* Complaint Details */}
+          {complaintDetails && (
+            <div className="mb-4 md:mb-6">
+              <div className="flex items-center gap-2 mb-2 md:mb-3">
+                <Info className="w-4 h-4" color="#6C6C6C" />
+                <span className="text-sm font-semibold text-foreground">
+                  Complaint Details
+                </span>
+              </div>
+              <div className="ml-0 md:ml-6 rounded-lg border border-border bg-[#F7F7F7] px-3 py-2">
+                <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+                  {complaintDetails}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Instructions — dynamic per consultation type */}
           <div className={rescheduleHistory.length > 0 ? "mb-6" : ""}>

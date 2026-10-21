@@ -1,6 +1,4 @@
-import { Calendar, Clock, Stethoscope } from "lucide-react";
-import ReactQuill from "react-quill-new";
-import "react-quill-new/dist/quill.bubble.css";
+import { Calendar, Clock, Stethoscope, ClipboardList } from "lucide-react";
 import type { ElementType } from "react";
 
 interface ConsultationDoctorCardProps {
@@ -8,6 +6,7 @@ interface ConsultationDoctorCardProps {
   doctorFullName?: string;
   doctorSpecializations?: string[];
   appointmentReasonForVisit?: string;
+  appointmentComplaintDetails?: string;
   displayDate: string;
   displayTime: string;
   TypeIcon: ElementType;
@@ -21,6 +20,7 @@ export function ConsultationDoctorCard({
   doctorFullName,
   doctorSpecializations,
   appointmentReasonForVisit,
+  appointmentComplaintDetails,
   displayDate,
   displayTime,
   TypeIcon,
@@ -88,22 +88,36 @@ export function ConsultationDoctorCard({
       {/* Divider */}
       <div className="border-t border-border mb-6" />
 
-      {/* Reason for Visit */}
+      {/* Reason for Appointment (visit) */}
       {appointmentReasonForVisit && (
-        <div className="mb-4 md:mb-8">
+        <div className="mb-4 md:mb-6">
           <div className="flex items-center gap-2 mb-2 md:mb-3">
             <Stethoscope className="w-4 h-4" color="#6C6C6C" />
             <span className="text-sm font-semibold text-foreground">
-              Reason for Visit (Patient)
+              Reason for Appointment (visit)
             </span>
           </div>
-          <div className="ml-0 md:ml-6 rounded-lg border border-border bg-[#F7F7F7] overflow-hidden">
-            <ReactQuill
-              value={appointmentReasonForVisit}
-              readOnly
-              theme="bubble"
-              modules={{ toolbar: false }}
-            />
+          <div className="ml-0 md:ml-6 rounded-lg border border-border bg-[#F7F7F7] px-3 py-2">
+            <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+              {appointmentReasonForVisit}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Complaint Details */}
+      {appointmentComplaintDetails && (
+        <div className="mb-4 md:mb-6">
+          <div className="flex items-center gap-2 mb-2 md:mb-3">
+            <ClipboardList className="w-4 h-4" color="#6C6C6C" />
+            <span className="text-sm font-semibold text-foreground">
+              Complaint Details
+            </span>
+          </div>
+          <div className="ml-0 md:ml-6 rounded-lg border border-border bg-[#F7F7F7] px-3 py-2">
+            <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+              {appointmentComplaintDetails}
+            </p>
           </div>
         </div>
       )}

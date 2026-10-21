@@ -62,7 +62,7 @@ export default function AdminPatientList() {
             size={20}
           />
           <Input
-            placeholder="Search by patient name, email, registration number..."
+            placeholder="Search by patient name, MRN, email, or registration number..."
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);

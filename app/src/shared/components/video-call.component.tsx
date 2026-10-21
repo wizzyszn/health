@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   Mic,
@@ -11,11 +11,16 @@ import {
   Loader2,
   VideoOff as VideoOffIcon,
   GripHorizontal,
+  SwitchCamera,
+  Volume2,
 } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { DailyProvider } from "@daily-co/daily-react";
 import { toast } from "sonner";
-import { useDailyVideoRoom } from "../daily/use-daily-video-room.hook";
+import {
+  useDailyVideoRoom,
+  DEFAULT_MEDIA_BY_ROLE,
+} from "../daily/use-daily-video-room.hook";
 import {
   useCallDuration,
   useCountdownToEnd,
@@ -25,6 +30,14 @@ import type {
   DailyParticipantTile,
   DailyVideoSession,
 } from "../daily/daily-video-room.types";
+import { MediaAccessGate } from "../daily/media-access-gate.component";
+import {
+  detectInAppBrowser,
+  detectMobilePlatform,
+  getMediaPermissionHelpLines,
+  type MediaAccessErrorDetails,
+  type MediaAccessPreferences,
+} from "../daily/media-access.util";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -121,6 +134,10 @@ function ParticipantVideo({
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.srcObject = participant.videoStream;
+
+    // Mobile browsers can defer autoplay even for silent video. Start it
+    // explicitly; failures are harmless and leave the play overlay intact.
+    void videoRef.current.play().catch(() => undefined);
   }, [participant.videoStream]);
 
   if (!participant.videoStream && !participant.isVideoEnabled) {
@@ -142,7 +159,9 @@ function ParticipantVideo({
       ref={videoRef}
       autoPlay
       playsInline
-      muted={participant.isLocal}
+      // Remote audio is played by RemoteAudioLayer. Keeping every video
+      // element muted avoids double playback and lets mobile autoplay work.
+      muted
       className={`object-cover bg-black ${className}`}
     />
   );
@@ -159,31 +178,115 @@ function RemoteAudioLayer({
 }: {
   participants: DailyParticipantTile[];
 }) {
+  const audioElementsRef = useRef(new Map<string, HTMLAudioElement>());
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
+
+  const registerAudioElement = useCallback(
+    (participantId: string, element: HTMLAudioElement | null) => {
+      if (element) {
+        audioElementsRef.current.set(participantId, element);
+      } else {
+        audioElementsRef.current.delete(participantId);
+      }
+    },
+    [],
+  );
+
+  const markPlaybackBlocked = useCallback(() => {
+    setNeedsAudioUnlock(true);
+  }, []);
+
+  /**
+   * Mobile Chrome/Safari can block the remote audio element when the track
+   * arrives outside a user gesture. A direct tap on the fallback prompt
+   * re-runs play() for every sink and unlocks audio.
+   */
+  const playAllAudio = useCallback(async () => {
+    const elements = Array.from(audioElementsRef.current.values());
+    if (elements.length === 0) {
+      setNeedsAudioUnlock(false);
+      return;
+    }
+
+    const results = await Promise.all(
+      elements.map(async (element) => {
+        try {
+          await element.play();
+          return true;
+        } catch {
+          return false;
+        }
+      }),
+    );
+
+    setNeedsAudioUnlock(results.some((played) => !played));
+  }, []);
+
+  useEffect(() => {
+    void playAllAudio();
+  }, [participants, playAllAudio]);
+
   return (
     <>
       {participants.map((participant) => (
-        <RemoteAudioSink key={participant.id} participant={participant} />
+        <RemoteAudioSink
+          key={participant.id}
+          participant={participant}
+          registerAudioElement={registerAudioElement}
+          onPlaybackBlocked={markPlaybackBlocked}
+        />
       ))}
+      {needsAudioUnlock && (
+        <button
+          type="button"
+          onClick={() => void playAllAudio()}
+          className="fixed bottom-24 left-1/2 z-[130] flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-xl transition-transform hover:scale-105"
+        >
+          <Volume2 className="size-4" aria-hidden="true" />
+          Tap to enable sound
+        </button>
+      )}
     </>
   );
 }
 
 function RemoteAudioSink({
   participant,
+  registerAudioElement,
+  onPlaybackBlocked,
 }: {
   participant: DailyParticipantTile;
+  registerAudioElement: (
+    participantId: string,
+    element: HTMLAudioElement | null,
+  ) => void;
+  onPlaybackBlocked: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!audioRef.current) return;
     audioRef.current.srcObject = participant.audioStream;
-  }, [participant.audioStream]);
+
+    void audioRef.current.play().catch(() => {
+      onPlaybackBlocked();
+    });
+  }, [participant.audioStream, onPlaybackBlocked]);
 
   // Local audio is never attached — playing it back would echo.
   if (participant.isLocal || !participant.audioStream) return null;
 
-  return <audio ref={audioRef} autoPlay playsInline />;
+  return (
+    <audio
+      ref={(element) => {
+        audioRef.current = element;
+        registerAudioElement(participant.id, element);
+      }}
+      autoPlay
+      playsInline
+      preload="auto"
+    />
+  );
 }
 
 /**
@@ -210,6 +313,59 @@ function ParticipantMuteBadge({
       <MicOff className="size-3" aria-hidden="true" />
       {!compact && <span>Muted</span>}
     </span>
+  );
+}
+
+/**
+ * Actionable media error dialog for problems that occur after joining:
+ * permission revoked, camera busy, or device unplugged. The call itself stays
+ * connected, so this must not look like a fatal connection failure.
+ */
+function MediaErrorDialog({
+  error,
+  onClose,
+}: {
+  error: MediaAccessErrorDetails | null;
+  onClose: () => void;
+}) {
+  if (!error) return null;
+
+  const helpLines = getMediaPermissionHelpLines({
+    code: error.code,
+    mobilePlatform: detectMobilePlatform(),
+    inAppBrowser: detectInAppBrowser(),
+  });
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto rounded-2xl p-5 text-left sm:p-6">
+        <DialogHeader className="space-y-2 text-left">
+          <DialogTitle>{error.title}</DialogTitle>
+          <DialogDescription className="text-xs leading-relaxed sm:text-sm">
+            {error.message}
+          </DialogDescription>
+        </DialogHeader>
+        {helpLines.length > 0 && (
+          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[11px] leading-relaxed text-muted-foreground">
+            {helpLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+          If you're already in the call, it stays connected while you fix the
+          setting. Then tap the microphone or camera button again.
+        </p>
+        <Button type="button" className="mt-4 w-full" onClick={onClose}>
+          Got it
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -326,11 +482,15 @@ function VideoCallInner({
     callObject,
     connectionStatus,
     errorMessage,
+    mediaError,
     peerLeftNotice,
     isCameraEnabled,
+    isCameraFlipping,
     isMicrophoneEnabled,
     localParticipant,
     remoteParticipants,
+    clearMediaError,
+    flipCamera,
     toggleCamera,
     toggleMicrophone,
   } = dailyState;
@@ -380,6 +540,7 @@ function VideoCallInner({
           }}
           onCancel={cancelLeave}
         />
+        <MediaErrorDialog error={mediaError} onClose={clearMediaError} />
         <div className="fixed inset-0 z-[100] flex flex-col bg-white">
           {/* Header */}
           <header className="min-h-14 sm:h-16 bg-primary flex items-center justify-between gap-3 px-4 py-3 sm:px-6 shrink-0 z-50 shadow-sm relative">
@@ -482,7 +643,14 @@ function VideoCallInner({
           <div className="min-h-20 sm:h-24 bg-white border-t border-gray-200 flex items-center justify-center shrink-0 px-3 py-3">
             <div className="flex w-full max-w-md items-center justify-center gap-2 sm:gap-4">
               <button
+                type="button"
                 onClick={() => void toggleMicrophone()}
+                aria-label={
+                  isMicrophoneEnabled ? "Mute microphone" : "Unmute microphone"
+                }
+                title={
+                  isMicrophoneEnabled ? "Mute microphone" : "Unmute microphone"
+                }
                 className={`flex size-11 sm:size-14 items-center justify-center rounded-full transition-colors shadow-sm ${
                   !isMicrophoneEnabled
                     ? "bg-red-500 hover:bg-red-600 text-white"
@@ -497,7 +665,12 @@ function VideoCallInner({
               </button>
 
               <button
+                type="button"
                 onClick={() => void toggleCamera()}
+                aria-label={
+                  isCameraEnabled ? "Turn camera off" : "Turn camera on"
+                }
+                title={isCameraEnabled ? "Turn camera off" : "Turn camera on"}
                 className={`flex size-11 sm:size-14 items-center justify-center rounded-full transition-colors shadow-sm ${
                   !isCameraEnabled
                     ? "bg-red-500 hover:bg-red-600 text-white"
@@ -510,8 +683,24 @@ function VideoCallInner({
                   <Video className="size-5 sm:size-6" />
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={() => void flipCamera()}
+                disabled={!isCameraEnabled || isCameraFlipping}
+                aria-label="Switch camera"
+                title="Switch front/back camera"
+                className="flex size-11 sm:size-14 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-gray-800 shadow-sm transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isCameraFlipping ? (
+                  <Loader2 className="size-5 animate-spin sm:size-6" />
+                ) : (
+                  <SwitchCamera className="size-5 sm:size-6" />
+                )}
+              </button>
               <div className="w-px h-6 sm:h-8 bg-gray-200 mx-1 sm:mx-2" />
               <button
+                type="button"
                 onClick={requestLeave}
                 className="min-h-11 px-4 py-2 sm:px-6 sm:py-4 rounded-full bg-red-500 hover:bg-red-600 text-white font-medium transition-colors shadow-sm text-sm sm:text-base whitespace-nowrap"
               >
@@ -536,6 +725,7 @@ function VideoCallInner({
         }}
         onCancel={cancelLeave}
       />
+      <MediaErrorDialog error={mediaError} onClose={clearMediaError} />
       <div className="size-full bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100 flex items-center justify-center relative ">
         {mainParticipant ? (
           <ParticipantVideo
@@ -570,10 +760,17 @@ function VideoCallInner({
       <div className="absolute inset-0 z-40 bg-black/20 sm:bg-transparent flex items-end justify-center pb-3 opacity-100 sm:opacity-0 sm:hover:opacity-100 sm:hover:bg-black/30 transition-all duration-200">
         <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-full shadow-lg sm:translate-y-2 sm:hover:translate-y-0 transition-transform">
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               void toggleMicrophone();
             }}
+            aria-label={
+              isMicrophoneEnabled ? "Mute microphone" : "Unmute microphone"
+            }
+            title={
+              isMicrophoneEnabled ? "Mute microphone" : "Unmute microphone"
+            }
             className={`p-1.5 rounded-full transition-colors ${
               !isMicrophoneEnabled
                 ? "bg-red-500 text-white"
@@ -588,10 +785,13 @@ function VideoCallInner({
           </button>
 
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               void toggleCamera();
             }}
+            aria-label={isCameraEnabled ? "Turn camera off" : "Turn camera on"}
+            title={isCameraEnabled ? "Turn camera off" : "Turn camera on"}
             className={`p-1.5 rounded-full transition-colors ${
               !isCameraEnabled
                 ? "bg-red-500 text-white"
@@ -606,20 +806,44 @@ function VideoCallInner({
           </button>
 
           <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void flipCamera();
+            }}
+            disabled={!isCameraEnabled || isCameraFlipping}
+            aria-label="Switch camera"
+            title="Switch front/back camera"
+            className="p-1.5 rounded-full bg-gray-100 text-gray-800 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isCameraFlipping ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <SwitchCamera className="size-3.5" />
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               setIsExpanded(true);
             }}
+            aria-label="Expand call"
+            title="Expand call"
             className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors"
           >
             <Maximize2 className="size-3.5" />
           </button>
 
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               requestLeave();
             }}
+            aria-label="Leave call"
+            title="Leave call"
             className="p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
           >
             <X className="size-3.5" />
@@ -662,7 +886,7 @@ function VideoCallInner({
   );
 }
 
-function ActiveVideoCall({
+function ConnectedVideoCall({
   session,
   displayName,
   role,
@@ -670,6 +894,7 @@ function ActiveVideoCall({
   scheduledEndAtUtc,
   onLeave,
   onSessionStale,
+  initialPreferences,
 }: {
   session: DailyVideoSession;
   displayName: string;
@@ -679,8 +904,14 @@ function ActiveVideoCall({
   onLeave: () => void;
   /** Called when auto-rejoin exhausts — parent should refetch a fresh token. */
   onSessionStale?: () => void;
+  initialPreferences: MediaAccessPreferences;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // A phone has no room for an expanded charting view next to a tiny PIP;
+  // start the call full-screen so the media controls are always reachable.
+  const [isExpanded, setIsExpanded] = useState(
+    () =>
+      typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT,
+  );
   const pipLayout = usePipLayout();
   const dailyState = useDailyVideoRoom(
     session,
@@ -688,6 +919,7 @@ function ActiveVideoCall({
     role,
     appointmentId,
     onSessionStale,
+    initialPreferences,
   );
 
   const handleLeave = async () => {
@@ -744,6 +976,59 @@ function ActiveVideoCall({
   );
 
   return createPortal(pipContent, document.body);
+}
+
+function ActiveVideoCall({
+  session,
+  displayName,
+  role,
+  appointmentId,
+  scheduledEndAtUtc,
+  onLeave,
+  onSessionStale,
+}: {
+  session: DailyVideoSession;
+  displayName: string;
+  role: "doctor" | "patient";
+  appointmentId: string;
+  scheduledEndAtUtc?: string | null;
+  onLeave: () => void;
+  /** Called when auto-rejoin exhausts — parent should refetch a fresh token. */
+  onSessionStale?: () => void;
+}) {
+  const [preferences, setPreferences] = useState<MediaAccessPreferences | null>(
+    null,
+  );
+  const defaultPreferences = useMemo<MediaAccessPreferences>(() => {
+    const defaults = DEFAULT_MEDIA_BY_ROLE[role];
+    return {
+      audio: !defaults.startAudioOff,
+      video: !defaults.startVideoOff,
+    };
+  }, [role]);
+
+  if (!preferences) {
+    return (
+      <MediaAccessGate
+        defaultPreferences={defaultPreferences}
+        onReady={setPreferences}
+        onCancel={onLeave}
+      />
+    );
+  }
+
+  return (
+    <ConnectedVideoCall
+      session={session}
+      displayName={displayName}
+      role={role}
+      appointmentId={appointmentId}
+      scheduledEndAtUtc={scheduledEndAtUtc}
+      onSessionStale={onSessionStale}
+      onLeave={onLeave}
+      initialPreferences={preferences}
+    />
+  );
 }
 
 export function VideoCall({

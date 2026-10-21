@@ -14,8 +14,8 @@ export function mapReferralFormToPayload(
   assignToPatient: boolean,
 ) {
   return {
-    specialty: values.specialty?.trim() || undefined,
-    specialist_name: values.specialist_name,
+    specialty: values.specialty?.trim() ?? "",
+    specialist_name: values.specialist_name?.trim() ?? "",
     hospital: values.hospital,
     hospital_address:
       values.hospital_address && values.hospital_address.length > 0

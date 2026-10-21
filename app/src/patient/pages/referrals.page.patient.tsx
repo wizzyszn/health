@@ -20,6 +20,7 @@ import { ReferralSearchBar } from "@/patient/components/referral/referral-search
 import { ReferralGroupCard } from "@/patient/components/referral/referral-group-card.component.patient";
 import { ReferralEmptyState } from "@/patient/components/referral/referral-empty-state.component.patient";
 import { ReferralGroup } from "@/patient/components/referral/referral.types.patient";
+import { getReferralGroupTitle } from "@/patient/components/referral/referral-group.util.patient";
 import { PatientRecordGroupSkeleton } from "@/shared/components/patient-record-skeletons.component.shared";
 import SEO from "@/shared/components/seo.component";
 
@@ -45,9 +46,7 @@ export default function ReferralsPage() {
     if (!normalizedSearch) return groups;
 
     return groups.filter((group) => {
-      const consultationTitle = (
-        group.consultation?.title || "Consultation"
-      ).toLowerCase();
+      const groupTitle = getReferralGroupTitle(group).toLowerCase();
       const reference = (group.consultation?._id || "").toLowerCase();
 
       // Also search within individual referrals
@@ -63,7 +62,7 @@ export default function ReferralsPage() {
       });
 
       return (
-        consultationTitle.includes(normalizedSearch) ||
+        groupTitle.includes(normalizedSearch) ||
         reference.includes(normalizedSearch) ||
         refMatch
       );
@@ -99,7 +98,7 @@ export default function ReferralsPage() {
               [profile.first_name, profile.middle_name, profile.last_name]
                 .filter(Boolean)
                 .join(" ") || "—",
-            mrn: profile.registration_no,
+            mrn: profile.mrn,
             dateOfBirth: profile.date_of_birth,
             gender: profile.gender || undefined,
             phone: profile.phone_number,

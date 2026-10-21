@@ -72,7 +72,7 @@ function PatientsPage() {
             />
             <Input
               ref={searchInputRef}
-              placeholder="Search by name, full name, email, phone, registration number..."
+              placeholder="Search by name, MRN, email, phone, or registration number..."
               className="pl-12 bg-[#F7F7F7] border-none rounded-[12px] h-14 text-base"
               value={searchTerm}
               onChange={(e) => {

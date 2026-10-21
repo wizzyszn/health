@@ -44,6 +44,13 @@ const METRICS_MAPPER = {
   },
 } as const;
 
+const METRIC_ORDER: (keyof DoctorDashMetrics)[] = [
+  "consultations",
+  "investigations",
+  "medications",
+  "appointments",
+];
+
 const DEFAULT_METRICS: DoctorDashMetrics = {
   consultations: 0,
   medications: 0,
@@ -63,13 +70,11 @@ function DoctorDash() {
 
   const metrics = data?.data ?? DEFAULT_METRICS;
 
-  const values = Object.entries(metrics).map(([key, value]) => {
-    const k = key as keyof typeof METRICS_MAPPER;
-
+  const values = METRIC_ORDER.map((k) => {
     return {
       ...METRICS_MAPPER[k],
       label: k.charAt(0).toUpperCase() + k.slice(1),
-      value,
+      value: metrics[k],
     };
   });
 

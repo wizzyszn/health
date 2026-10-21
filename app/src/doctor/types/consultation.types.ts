@@ -28,6 +28,7 @@ export interface BaseItem {
   last_name: string;
   patientName: string;
   ref: string;
+  refLabel?: string;
   type: string;
   date: { day: number; month: string };
   time: string;
@@ -84,6 +85,8 @@ export interface RawDoctorConsultation {
     timezone_snapshot: string;
     status: AppointmentStatus;
     reason_for_visit: string;
+    reason_for_appointment?: string;
+    complaint_details?: string;
   };
 }
 
@@ -103,6 +106,7 @@ export interface ConsultationAppointmentPerson {
   last_name: string;
   full_name: string;
   email: string;
+  mrn?: string;
   profile_picture_url?: string;
   id?: string;
 }
@@ -121,6 +125,7 @@ export interface RawDoctorConsultationAppointment {
   timezone_snapshot: string;
   status: AppointmentStatus;
   reason_for_visit: string;
+  reason_for_appointment?: string;
   complaint_details?: string;
   Medical_conditions?: string[];
   allergies?: string[];

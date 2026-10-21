@@ -143,7 +143,7 @@ function ReferralFormFields({
               />
             </FormControl>
             <FormDescription className="text-xs text-gray-500">
-              Full name of the doctor receiving the patient.
+              Optional. Add the specialist&apos;s name if known, e.g. Dr. Okoh.
             </FormDescription>
             <FormMessage />
           </FormItem>

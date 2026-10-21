@@ -49,8 +49,10 @@ import {
   isJoinWindowEnded,
   isOutsideJoinWindow,
 } from "@/shared/utils/video-session-errors.util";
-import ReactQuill from "react-quill-new";
-import "react-quill-new/dist/quill.bubble.css";
+import {
+  getBookingComplaintDetails,
+  getBookingReasonForAppointment,
+} from "@/shared/utils/appointment-booking-fields.util";
 import { parse, format } from "date-fns";
 import { useSelector } from "react-redux";
 import { RootState } from "@/config/stores/store";
@@ -58,6 +60,7 @@ import { AppointmentStatusBadge } from "../components/appointment-status-badge.c
 import type { AppointmentStatus } from "../types/consultation.types";
 import { AppointmentDetailSkeleton } from "@/shared/components/appointment-detail-skeleton.component.shared";
 import SEO from "@/shared/components/seo.component";
+import { displayMrn } from "@/lib/mrn";
 
 // ─── Consultation type config ───────────────────────────────────────────────
 
@@ -328,6 +331,7 @@ function DoctorAppointmentDetails() {
 
   const patient = appointment.patient_id as {
     full_name?: string;
+    mrn?: string;
     profile_picture_url?: string;
   };
   const patientName =
@@ -364,6 +368,8 @@ function DoctorAppointmentDetails() {
   const rescheduleHistory = [...(appointment.rescheduled_history ?? [])].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
+  const reasonForAppointment = getBookingReasonForAppointment(appointment);
+  const complaintDetails = getBookingComplaintDetails(appointment);
 
   return (
     <>
@@ -404,6 +410,9 @@ function DoctorAppointmentDetails() {
             <div>
               <p className="font-semibold text-foreground text-sm">
                 {patientName}
+              </p>
+              <p className="text-xs text-[#828282]">
+                MRN: {displayMrn(patient?.mrn)}
               </p>
               <p className="text-xs text-[#828282]">
                 {appointment.booking_profile_snapshot?.occupation || "Patient"}
@@ -486,44 +495,40 @@ function DoctorAppointmentDetails() {
             </div>
           )}
 
-          {/* Reason for Appointment (visit) */}
-          {appointment.booking_profile_snapshot?.reason_for_appointment && (
-            <>
-              <div className="border-t border-border mb-5 md:mb-6" />
-              <div className="mb-5 md:mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <Info className="w-4 h-4 shrink-0" color="#6C6C6C" />
-                  <span className="text-sm font-semibold text-foreground">
-                    Reason for Appointment (visit)
-                  </span>
-                </div>
-                <p className="ml-6 text-sm text-muted-foreground">
-                  {appointment.booking_profile_snapshot.reason_for_appointment}
-                </p>
-              </div>
-            </>
-          )}
-
           {/* Divider */}
           <div className="border-t border-border mb-5 md:mb-6" />
 
-          {/* Reason for Visit */}
+          {/* Reason for Appointment (visit) */}
           <div className="mb-5 md:mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Stethoscope className="w-4 h-4 shrink-0" color="#6C6C6C" />
               <span className="text-sm font-semibold text-foreground">
-                Reason for Visit
+                Reason for Appointment (visit)
               </span>
             </div>
-            <div className="ml-6 rounded-lg border border-border bg-[#F7F7F7] overflow-hidden [&_.ql-editor]:px-3 [&_.ql-editor]:py-2">
-              <ReactQuill
-                value={appointment.reason_for_visit || "No reason provided"}
-                readOnly
-                theme="bubble"
-                modules={{ toolbar: false }}
-              />
+            <div className="ml-6 rounded-lg border border-border bg-[#F7F7F7] px-3 py-2">
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+                {reasonForAppointment || "No reason provided"}
+              </p>
             </div>
           </div>
+
+          {/* Complaint Details */}
+          {complaintDetails && (
+            <div className="mb-5 md:mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4 shrink-0" color="#6C6C6C" />
+                <span className="text-sm font-semibold text-foreground">
+                  Complaint Details
+                </span>
+              </div>
+              <div className="ml-6 rounded-lg border border-border bg-[#F7F7F7] px-3 py-2">
+                <p className="whitespace-pre-wrap break-words text-sm text-foreground">
+                  {complaintDetails}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Instructions */}
           <div className={rescheduleHistory.length > 0 ? "mb-6" : ""}>
