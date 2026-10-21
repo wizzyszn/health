@@ -130,14 +130,49 @@ When committing, Husky will run `lint-staged` ensuring all TypeScript and ESLint
 
 ## ▲ Vercel Deployment
 
-The repository-level `vercel.json` builds the Vite application from `app/`
-with the pnpm version declared in `package.json`. Keep the Vercel project Root
-Directory set to the repository root; the configuration supplies the install,
-build, output, and SPA rewrite settings.
+The repository-level `vercel.json` builds the Vite application in `app/` with
+the pnpm version declared in `app/package.json`. The install and build
+commands detect whether Vercel is running them from the repository root or
+from `app/`, so the project works with either **Root Directory** setting.
+Using `app` as the Root Directory is recommended.
 
-Configure `VITE_API_BASE_URL` for both Preview and Production deployments in
-Vercel Project Settings → Environment Variables. It must point to the deployed
-API base URL, including its version prefix when required.
+`vercel.json` also sets:
+
+- Long-lived immutable caching for hashed assets in `/assets/*`.
+- `no-cache` revalidation for `sw.js` and `manifest.webmanifest`, so PWA
+  updates are picked up immediately.
+- Basic security headers. Permissions-Policy is intentionally omitted because
+  the Daily.co video call iframe needs camera/microphone access.
+
+### Required environment variables
+
+Set `VITE_API_BASE_URL` in **Project Settings → Environment Variables** for
+the **Production** and **Preview** environments (and Development if you use
+`vercel dev`). It must point to the deployed API base URL, including its
+version prefix when required, for example:
+
+```env
+VITE_API_BASE_URL=https://your-api.example.com/api/v1
+```
+
+Vite inlines `VITE_*` variables at build time, so changing the value requires
+a new deployment. Local `app/.env` files are excluded by `.vercelignore` and
+are not used by Vercel.
+
+### First deployment
+
+1. Import the repository at [vercel.com/new](https://vercel.com/new) and set
+   the **Root Directory** to `app`.
+2. Add `VITE_API_BASE_URL` for Production and Preview.
+3. Deploy. Vercel runs `pnpm install --frozen-lockfile` and `pnpm build` from
+   `app/`, then serves `app/dist`.
+
+Or deploy from the CLI:
+
+```bash
+npx vercel          # preview deployment
+npx vercel --prod   # production deployment
+```
 
 `pnpm-lock.yaml` is intentionally committed for reproducible production
 installs. Do not add npm, Yarn, or Bun lockfiles alongside it.
