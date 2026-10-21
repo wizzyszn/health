@@ -133,9 +133,10 @@ export default defineConfig({
             },
           },
           {
-            // Match on the API path rather than a hard-coded backend host so
-            // the rule follows VITE_API_BASE_URL across deployments.
-            urlPattern: /\/patients\/consultations/,
+            urlPattern: ({ url }) =>
+              url.href.startsWith(
+                "https://health-app-backend-inzm.onrender.com/patients/consultations",
+              ),
             handler: "NetworkFirst",
             options: {
               cacheName: "consultations",

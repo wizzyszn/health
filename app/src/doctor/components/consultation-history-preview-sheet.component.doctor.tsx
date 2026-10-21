@@ -23,6 +23,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAConsultationsForDoc } from "@/config/service/doctor.service";
 import { formatZonedDate, formatZonedTimeRange } from "@/lib/utils";
 import { displayMrn } from "@/lib/mrn";
+import {
+  getBookingComplaintDetails,
+  getBookingReasonForAppointment,
+} from "@/shared/utils/appointment-booking-fields.util";
 import { ConsultationPreview } from "./consultation-preview.component.doctor";
 import { ConsultationStatusBadge } from "./consultation-status-badge.component.doctor";
 import { AppointmentStatusBadge } from "./appointment-status-badge.component.doctor";
@@ -162,8 +166,8 @@ function ConsultationDetailsSummary({
     appointment?.patient_id?.profile_picture_url;
 
   const hasVisitDetails =
-    appointment?.reason_for_appointment ||
-    appointment?.complaint_details ||
+    getBookingReasonForAppointment(appointment) ||
+    getBookingComplaintDetails(appointment) ||
     appointment?.allergies?.length ||
     appointment?.Medical_conditions?.length;
 
@@ -267,11 +271,11 @@ function ConsultationDetailsSummary({
           <SummarySection title="Visit Details">
             <InfoItem
               label="Reason for Appointment (visit)"
-              value={appointment?.reason_for_appointment}
+              value={getBookingReasonForAppointment(appointment)}
             />
             <InfoItem
               label="Complaint Details"
-              value={appointment?.complaint_details}
+              value={getBookingComplaintDetails(appointment)}
             />
             <InfoItem
               label="Allergies"

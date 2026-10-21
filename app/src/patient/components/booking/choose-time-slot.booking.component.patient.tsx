@@ -18,6 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { cn, formatLocalDateTime, getBrowserTimeZone } from "@/lib/utils";
 import {
   addDays,
@@ -198,6 +199,7 @@ const ChooseTimeSlot = ({
 
   // ── Date strip state ────────────────────────────────────────────────────────
   const [stripOffset, setStripOffset] = useState(0);
+  const isMobile = useIsMobile();
 
   const allDates = useMemo(() => {
     if (!enabledEndDate)
@@ -208,11 +210,17 @@ const ChooseTimeSlot = ({
     return eachDayOfInterval({ start: enabledStartDate, end: enabledEndDate });
   }, [enabledStartDate, enabledEndDate]);
 
-  const VISIBLE_DATES = 7;
-  const canScrollLeft = stripOffset > 0;
-  const canScrollRight = stripOffset + VISIBLE_DATES < allDates.length;
+  // Seven days plus both arrows leaves roughly 36px per day on a phone, which
+  // crushes the weekday/month labels. Show five days there instead.
+  const VISIBLE_DATES = isMobile ? 5 : 7;
+  const maxStripOffset = Math.max(0, allDates.length - VISIBLE_DATES);
+  // Keep a stale offset (e.g. after the availability window narrows on load, or
+  // when the breakpoint changes) from scrolling past the last page.
+  const currentStripOffset = Math.min(stripOffset, maxStripOffset);
+  const canScrollLeft = currentStripOffset > 0;
+  const canScrollRight = currentStripOffset < maxStripOffset;
   const dateStripTranslateX =
-    allDates.length > 0 ? -(stripOffset / allDates.length) * 100 : 0;
+    allDates.length > 0 ? -(currentStripOffset / allDates.length) * 100 : 0;
 
   // ── Availability per date ───────────────────────────────────────────────────
   const selectedDateKey = selectedDate
@@ -652,17 +660,17 @@ const ChooseTimeSlot = ({
           <CalendarDays className="h-3.5 w-3.5 text-primary" />
           Select Date
         </label>
-        <div className="relative overflow-hidden rounded-lg border border-border bg-muted/20 p-2.5">
+        <div className="relative overflow-hidden rounded-lg border border-border bg-muted/20 p-2 sm:p-2.5">
           {/* Navigation arrows */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               disabled={!canScrollLeft}
               onClick={() =>
-                setStripOffset(Math.max(0, stripOffset - VISIBLE_DATES))
+                setStripOffset(Math.max(0, currentStripOffset - VISIBLE_DATES))
               }
               className={cn(
-                "shrink-0 flex items-center justify-center size-8 rounded-lg border transition-all duration-200",
+                "shrink-0 flex items-center justify-center size-7 sm:size-8 rounded-lg border transition-all duration-200",
                 canScrollLeft
                   ? "border-border hover:bg-primary/5 hover:border-primary/30 text-foreground cursor-pointer"
                   : "border-transparent text-muted-foreground/30 cursor-not-allowed",
@@ -673,7 +681,7 @@ const ChooseTimeSlot = ({
 
             <div className="relative min-w-0 flex-1 overflow-hidden">
               <motion.div
-                className="grid gap-1"
+                className="grid gap-1 sm:gap-1.5"
                 style={{
                   gridTemplateColumns: `repeat(${allDates.length}, minmax(0, 1fr))`,
                   width: `${(allDates.length / VISIBLE_DATES) * 100}%`,
@@ -699,7 +707,7 @@ const ChooseTimeSlot = ({
                       whileTap={{ scale: 0.96 }}
                       onClick={() => handleSelectDay(date)}
                       className={cn(
-                        "relative z-0 flex cursor-pointer flex-col items-center rounded-xl border px-1 py-2 transition-colors duration-200",
+                        "relative z-0 flex cursor-pointer flex-col items-center rounded-xl border px-0.5 py-1.5 sm:px-1 sm:py-2 transition-colors duration-200",
                         isSelected
                           ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
                           : isToday
@@ -720,7 +728,7 @@ const ChooseTimeSlot = ({
                       )}
                       <span
                         className={cn(
-                          "text-[10px] font-medium uppercase tracking-wider",
+                          "text-[9px] sm:text-[10px] font-medium uppercase tracking-normal sm:tracking-wider whitespace-nowrap",
                           isSelected
                             ? "text-primary-foreground/80"
                             : "text-muted-foreground",
@@ -730,7 +738,7 @@ const ChooseTimeSlot = ({
                       </span>
                       <span
                         className={cn(
-                          "text-lg font-bold leading-tight mt-0.5",
+                          "text-base sm:text-lg font-bold leading-tight mt-0.5",
                           isSelected
                             ? "text-primary-foreground"
                             : "text-foreground",
@@ -740,7 +748,7 @@ const ChooseTimeSlot = ({
                       </span>
                       <span
                         className={cn(
-                          "text-[10px] font-medium",
+                          "text-[9px] sm:text-[10px] font-medium whitespace-nowrap",
                           isSelected
                             ? "text-primary-foreground/70"
                             : "text-muted-foreground",
@@ -774,14 +782,11 @@ const ChooseTimeSlot = ({
               disabled={!canScrollRight}
               onClick={() =>
                 setStripOffset(
-                  Math.min(
-                    allDates.length - VISIBLE_DATES,
-                    stripOffset + VISIBLE_DATES,
-                  ),
+                  Math.min(maxStripOffset, currentStripOffset + VISIBLE_DATES),
                 )
               }
               className={cn(
-                "shrink-0 flex items-center justify-center size-8 rounded-lg border transition-all duration-200",
+                "shrink-0 flex items-center justify-center size-7 sm:size-8 rounded-lg border transition-all duration-200",
                 canScrollRight
                   ? "border-border hover:bg-primary/5 hover:border-primary/30 text-foreground cursor-pointer"
                   : "border-transparent text-muted-foreground/30 cursor-not-allowed",

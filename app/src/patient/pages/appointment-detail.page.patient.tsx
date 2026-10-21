@@ -337,6 +337,7 @@ const AppointmentDetails = () => {
           displayName={patientName}
           role="patient"
           appointmentId={consultationId}
+          scheduledEndAtUtc={appointment.scheduled_end_at_utc}
           onLeave={() => setShowVideo(false)}
           isUnavailable={isWaitingForDoctor}
           isLoading={videoSessionQuery.isLoading}
@@ -505,6 +506,7 @@ const AppointmentDetails = () => {
                     userTimezone,
                   );
                   const isLast = index === rescheduleHistory.length - 1;
+                  const historyReason = getBookingReasonForAppointment(history);
 
                   return (
                     <article key={history._id} className="relative flex gap-3">
@@ -540,14 +542,13 @@ const AppointmentDetails = () => {
                             </span>
                           </div>
 
-                          {(history.reason_for_visit ||
-                            history.cancelled_reason) && (
+                          {(historyReason || history.cancelled_reason) && (
                             <div className="mt-3 space-y-1 border-l-2 border-[#DDD6FE] pl-3 text-xs">
-                              {history.reason_for_visit && (
+                              {historyReason && (
                                 <p className="text-muted-foreground">
                                   Reason:{" "}
                                   <span className="text-foreground">
-                                    {history.reason_for_visit}
+                                    {historyReason}
                                   </span>
                                 </p>
                               )}

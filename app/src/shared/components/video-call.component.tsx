@@ -343,7 +343,10 @@ function MediaErrorDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto rounded-2xl p-5 text-left sm:p-6">
+      <DialogContent
+        overlayClassName="z-[120]"
+        className="z-[120] max-h-[90dvh] max-w-md overflow-y-auto rounded-2xl p-5 text-left sm:p-6"
+      >
         <DialogHeader className="space-y-2 text-left">
           <DialogTitle>{error.title}</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed sm:text-sm">
@@ -390,7 +393,12 @@ function LeaveConfirmDialog({
       open={open}
       onOpenChange={(next) => (!next ? onCancel() : undefined)}
     >
-      <DialogContent className="max-w-sm rounded-xl p-5 sm:p-6">
+      {/* Above the expanded call surface (z-100), otherwise the confirmation
+          opens behind the full-screen call and Leave Call looks dead. */}
+      <DialogContent
+        overlayClassName="z-[120]"
+        className="z-[120] max-w-sm rounded-xl p-5 sm:p-6"
+      >
         <DialogHeader className="space-y-1.5 text-left">
           <DialogTitle>Leave this call?</DialogTitle>
           <DialogDescription>
@@ -541,7 +549,7 @@ function VideoCallInner({
           onCancel={cancelLeave}
         />
         <MediaErrorDialog error={mediaError} onClose={clearMediaError} />
-        <div className="fixed inset-0 z-[100] flex flex-col bg-white">
+        <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-white">
           {/* Header */}
           <header className="min-h-14 sm:h-16 bg-primary flex items-center justify-between gap-3 px-4 py-3 sm:px-6 shrink-0 z-50 shadow-sm relative">
             <div className="flex min-w-0 flex-col gap-0.5">
@@ -640,7 +648,7 @@ function VideoCallInner({
           </div>
 
           {/* Bottom Controls */}
-          <div className="min-h-20 sm:h-24 bg-white border-t border-gray-200 flex items-center justify-center shrink-0 px-3 py-3">
+          <div className="min-h-20 sm:h-24 bg-white border-t border-gray-200 flex items-center justify-center shrink-0 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
             <div className="flex w-full max-w-md items-center justify-center gap-2 sm:gap-4">
               <button
                 type="button"
@@ -923,8 +931,17 @@ function ConnectedVideoCall({
   );
 
   const handleLeave = async () => {
-    await dailyState.leaveMeeting();
-    onLeave();
+    // Daily's leave() can reject on a flaky mobile connection. The user asked
+    // to leave, so always hand control back to the parent even if the room
+    // teardown fails — otherwise the call stays on screen and the button
+    // looks unresponsive.
+    try {
+      await dailyState.leaveMeeting();
+    } catch {
+      // Ignore: the parent unmounts the call either way.
+    } finally {
+      onLeave();
+    }
   };
 
   if (isExpanded) {
@@ -1050,6 +1067,19 @@ export function VideoCall({
   const visibleErrorMessage =
     errorMessage || "Unable to load the video session.";
   const lastToastMessageRef = useRef<string | null>(null);
+  const endCountdown = useCountdownToEnd(scheduledEndAtUtc);
+  const hasAutoEndedRef = useRef(false);
+
+  // The booked window is the hard stop for BOTH roles. This used to live only
+  // on the doctor's consultation page, so a patient who joined from their
+  // appointment stayed in the room after time was up.
+  useEffect(() => {
+    if (!scheduledEndAtUtc || !endCountdown.isExpired) return;
+    if (hasAutoEndedRef.current) return;
+    hasAutoEndedRef.current = true;
+    toast.info("The scheduled consultation time is up. The call has ended.");
+    onLeave();
+  }, [scheduledEndAtUtc, endCountdown.isExpired, onLeave]);
 
   useEffect(() => {
     if (!isError || isLoading || isUnavailable) return;

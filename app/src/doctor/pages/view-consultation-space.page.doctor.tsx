@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { PatientDataSidebar } from "../components/patient-data-sidebar.component.doctor";
 import { ConsultationMainContent } from "../components/consultation-space-main-content.component.doctor";
 import { ConsultationOrdersDrawer } from "../components/consultation-orders-drawer.component.doctor";
@@ -110,25 +109,6 @@ function ConsultationSpace() {
     next.delete("join");
     setSearchParams(next, { replace: true });
   };
-  // Auto-leave the call when the appointment window closes.
-  // A setTimeout fires at the exact moment the window ends, pulling the
-  // doctor back to the charting view. Cleanup cancels the timer if the
-  // component unmounts or dependencies change first.
-  useEffect(() => {
-    if (!shouldJoinVideo || !endTimeUtc) return;
-
-    const endTimeMs = new Date(endTimeUtc).getTime();
-    const msUntilEnd = endTimeMs - Date.now();
-
-    if (msUntilEnd <= 0) {
-      // Window already closed — leave immediately.
-      leaveCall();
-      return;
-    }
-
-    const timer = setTimeout(() => leaveCall(), msUntilEnd);
-    return () => clearTimeout(timer);
-  }, [shouldJoinVideo, endTimeUtc]);
 
   const videoErrorMessage = getApiErrorMessage(
     videoSessionQuery.error,

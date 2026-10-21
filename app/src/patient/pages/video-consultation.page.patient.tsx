@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { getPatientVideoSessionReq } from "@/config/service/video-consultation.service";
+import { getSingleAppointmentReq } from "@/config/service/patient.service";
 import { RootState } from "@/config/stores/store";
 import type { Patient } from "@/lib/types";
 import { ArrowLeft } from "lucide-react";
@@ -34,6 +35,15 @@ function VideoConsultationPagePatient() {
       failureCount < 3 && isRoomNotOpenYet(error),
     retryDelay: (attempt: number) => Math.min(1500 * 2 ** attempt, 5000),
     staleTime: 60_000,
+  });
+
+  // The token response doesn't carry the booked window. Read the appointment
+  // through the same cache key as the details page so the patient sees the
+  // same "time left" countdown (and the same end-of-window stop) as the doctor.
+  const appointmentQuery = useQuery({
+    queryKey: ["appointment", appointmentId],
+    queryFn: () => getSingleAppointmentReq(appointmentId),
+    enabled: Boolean(appointmentId),
   });
 
   // Spec: ending the call does NOT complete the consultation — the doctor
@@ -82,6 +92,9 @@ function VideoConsultationPagePatient() {
           displayName={patientName}
           role="patient"
           appointmentId={appointmentId}
+          scheduledEndAtUtc={
+            appointmentQuery.data?.data?.scheduled_end_at_utc ?? null
+          }
           onLeave={handleExit}
           isUnavailable={isWaitingForDoctor}
           isLoading={sessionQuery.isLoading}
