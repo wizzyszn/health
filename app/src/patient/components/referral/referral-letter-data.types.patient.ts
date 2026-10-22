@@ -39,12 +39,6 @@ export interface ReferralLetterAttachment {
   checked: boolean;
 }
 
-/** One attachment page image (resolved investigation result upload). */
-export interface ReferralLetterImage {
-  url: string;
-  label: string;
-}
-
 export interface ReferralLetterData {
   patient: ReferralLetterPatient;
   referralDate: Date;

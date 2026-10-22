@@ -7,27 +7,29 @@ import {
   ChevronRight,
   MoveLeft,
   MapPin,
+  Loader2,
 } from "lucide-react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/config/query-keys";
 import { Button } from "@/components/ui/button";
 import {
+  getGroupedMedicationsForConsultationsReq,
   getPatientProfileReq,
   getSingleReferralForPatientReq,
 } from "@/config/service/patient.service";
-import {
-  generateReferralLetterPdf,
-  type ReferralLetterImage,
-} from "@/patient/components/referral/generate-referral-letter-pdf.patient";
+import { createReferralLetterPdf } from "@/patient/components/referral/generate-referral-letter-pdf.patient";
+import { createInvestigationResultPdfs } from "@/patient/components/referral/generate-investigation-result-pdf.patient";
 import {
   buildReferralLetterData,
-  buildAttachmentChecklist,
+  applyReferralAttachments,
 } from "@/patient/components/referral/referral-letter-data.util.patient";
 import {
-  getInvestigationsForConsultationReq,
-  getGroupedMedicationsForConsultationsReq,
-} from "@/config/service/patient.service";
+  loadReferralAttachmentPool,
+  toInvestigationResultSources,
+} from "@/patient/components/referral/referral-attachments.patient";
+import { downloadPdfFiles } from "@/shared/utils/pdf-download.util";
 import type { ReferralLetterSourceMedication } from "@/patient/components/referral/referral-letter-data.util.patient";
 import { toast } from "sonner";
 import { PatientReferralDetailSkeleton } from "@/shared/components/patient-record-skeletons.component.shared";
@@ -40,6 +42,8 @@ type ReferralData = NonNullable<
 export default function ViewReferralDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["patient-referral", id],
@@ -59,14 +63,6 @@ export default function ViewReferralDetails() {
       ? referral.consultation_id?._id
       : undefined;
 
-  // Investigations of the referral's consultation — supplies the short
-  // table rows and the attachment image pages (persisted ids only).
-  const { data: investigationsRes } = useQuery({
-    queryKey: ["patient-consultation-investigations", consultationId],
-    queryFn: () => getInvestigationsForConsultationReq(consultationId!),
-    enabled: !!consultationId,
-  });
-
   const { data: medicationsRes } = useQuery({
     queryKey: ["patient-consultation-medications", consultationId],
     queryFn: () => getGroupedMedicationsForConsultationsReq(consultationId!),
@@ -78,24 +74,29 @@ export default function ViewReferralDetails() {
       toast.warning("Your profile is still loading — please try again.");
       return;
     }
-    try {
-      const consultationInvestigations =
-        investigationsRes?.data.investigations ?? [];
-      const attachedIds = ref.attachment_investigation_ids ?? [];
-      const attachedRecords = consultationInvestigations.filter((item) =>
-        attachedIds.includes(item._id),
-      );
+    if (isDownloading) return;
 
-      const images: ReferralLetterImage[] = attachedRecords.flatMap((record) =>
-        (record.result_images ?? []).map((url) => ({
-          url,
-          label: `${record.name} — uploaded result`,
-        })),
-      );
+    setIsDownloading(true);
+    const toastId = toast.loading("Preparing your referral documents…");
+
+    try {
+      // Attachments may come from any consultation in the patient's history,
+      // so resolve them from the full pool the doctor picked from. Skip the
+      // request entirely when the referral has none.
+      const hasAttachments =
+        (ref.attachment_investigation_ids ?? []).length > 0;
+      const investigationPool = hasAttachments
+        ? await loadReferralAttachmentPool(queryClient)
+        : [];
 
       const medications: ReferralLetterSourceMedication[] = (
         medicationsRes?.data.groups ?? []
       ).flatMap((group) => group.medications);
+
+      const patientName =
+        [profile.first_name, profile.middle_name, profile.last_name]
+          .filter(Boolean)
+          .join(" ") || "—";
 
       const letterData = buildReferralLetterData({
         referral: {
@@ -107,10 +108,7 @@ export default function ViewReferralDetails() {
           current_medications: ref.current_medications,
         },
         patient: {
-          fullName:
-            [profile.first_name, profile.middle_name, profile.last_name]
-              .filter(Boolean)
-              .join(" ") || "—",
+          fullName: patientName,
           mrn: profile.mrn,
           dateOfBirth: profile.date_of_birth,
           gender: profile.gender || undefined,
@@ -123,18 +121,44 @@ export default function ViewReferralDetails() {
         referralDate: new Date(ref.createdAt),
         consultationMedications: medications,
       });
-      letterData.attachments = buildAttachmentChecklist(
-        attachedRecords.map((record) => record.name),
+      const attachedRecords = applyReferralAttachments(
+        letterData,
+        ref.attachment_investigation_ids,
+        investigationPool,
       );
-      letterData.investigations = attachedRecords.map((record) => ({
-        name: record.name,
-        date: record.createdAt,
-      }));
 
-      await generateReferralLetterPdf(letterData, images);
+      // Letter and each result go out as separate files, so the referral PDF
+      // stays a letter and each result carries its own investigation heading.
+      const letterPdf = await createReferralLetterPdf(letterData);
+      const resultSources = toInvestigationResultSources(attachedRecords, {
+        fullName: patientName,
+        mrn: profile.mrn,
+      });
+      const resultPdfs = await createInvestigationResultPdfs(resultSources);
+      const fileCount = await downloadPdfFiles([letterPdf, ...resultPdfs]);
+
+      if (fileCount > 1) {
+        toast.success(
+          `Downloaded the referral letter and ${fileCount - 1} result ${
+            fileCount - 1 === 1 ? "file" : "files"
+          }.`,
+          { id: toastId },
+        );
+      } else if (resultSources.some((source) => source.imageUrls.length > 0)) {
+        toast.warning(
+          "Referral letter downloaded, but the attached result images could not be loaded.",
+          { id: toastId },
+        );
+      } else {
+        toast.success("Referral letter downloaded.", { id: toastId });
+      }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to generate the referral letter.");
+      toast.error("Failed to download the referral documents.", {
+        id: toastId,
+      });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -322,23 +346,44 @@ export default function ViewReferralDetails() {
               </h3>
 
               <div className="space-y-4">
-                <div
-                  className="flex items-start gap-3 p-3 rounded-lg bg-[#F7F7F7] hover:bg-[#EAEAEA] transition-colors cursor-pointer border border-gray-100 group"
+                <button
+                  type="button"
+                  className="flex w-full items-start gap-3 rounded-lg border border-gray-100 bg-[#F7F7F7] p-3 text-left transition-colors hover:bg-[#EAEAEA] group disabled:cursor-wait disabled:opacity-80 disabled:hover:bg-[#F7F7F7]"
                   onClick={() => handleDownloadPDF(referral)}
+                  disabled={isDownloading}
+                  aria-busy={isDownloading}
                 >
                   <div className="bg-white p-2 rounded-full shrink-0 shadow-sm border border-gray-100 group-hover:bg-gray-50 transition-colors">
-                    <Download className="w-4 h-4 text-gray-500" />
+                    {isDownloading ? (
+                      <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 text-gray-500" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-medium text-foreground">
-                      Download Referral
+                      {isDownloading
+                        ? "Preparing documents…"
+                        : "Download Referral"}
                     </h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Official referral letter (PDF)
+                      {isDownloading
+                        ? "Fetching the letter and attached results"
+                        : referral.attachment_investigation_ids?.length
+                          ? `Referral letter (PDF) + ${referral.attachment_investigation_ids.length} attached ${
+                              referral.attachment_investigation_ids.length === 1
+                                ? "result"
+                                : "results"
+                            }`
+                          : "Official referral letter (PDF)"}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground self-center" />
-                </div>
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 self-center animate-spin text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground self-center" />
+                  )}
+                </button>
               </div>
               {/* 
             <div className="mt-6 pt-5 border-t border-gray-100">

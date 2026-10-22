@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronUp, Download, Eye } from "lucide-react";
+import { CalendarDays, ChevronUp, Download, Eye, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import SendIcon from "@/shared/components/svgs/icons/send.icon";
@@ -64,14 +64,20 @@ export function ReferralGroupCard({
   isExpanded,
   onToggle,
   onDownload,
+  downloadingGroupId = null,
 }: {
   group: ReferralGroup;
   index: number;
   isExpanded: boolean;
   onToggle: (groupId: string) => void;
   onDownload: (group: ReferralGroup) => void;
+  /** Key of the group whose documents are currently being prepared. */
+  downloadingGroupId?: string | null;
 }) {
   const consultationId = group.consultation?._id || `unknown-${index}`;
+  const downloadKey =
+    group.consultation?._id || group.referrals?.[0]?._id || "group";
+  const isDownloading = downloadingGroupId === downloadKey;
 
   const groupTitle = getReferralGroupTitle(group);
 
@@ -131,10 +137,24 @@ export function ReferralGroupCard({
               e.stopPropagation();
               onDownload(group);
             }}
-            className="h-8 w-8 rounded-[8px] border border-[#F0F0F0] bg-white p-0 text-[#2B2B2B] hover:bg-[#F7F7F7] sm:h-10 sm:w-10"
-            title="Download PDF"
+            disabled={isDownloading}
+            aria-busy={isDownloading}
+            className="h-8 w-8 rounded-[8px] border border-[#F0F0F0] bg-white p-0 text-[#2B2B2B] hover:bg-[#F7F7F7] disabled:cursor-wait disabled:opacity-70 sm:h-10 sm:w-10"
+            title={
+              isDownloading ? "Preparing documents…" : "Download referral PDF"
+            }
           >
-            <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={1.8} />
+            {isDownloading ? (
+              <Loader2
+                className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4"
+                strokeWidth={1.8}
+              />
+            ) : (
+              <Download
+                className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                strokeWidth={1.8}
+              />
+            )}
           </Button>
 
           <Button

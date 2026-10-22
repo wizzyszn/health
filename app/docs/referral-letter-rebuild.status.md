@@ -90,3 +90,31 @@
 Verification this pass: frontend `npm run build` ✓, `npm run test` 43/43 ✓,
 `npm run check-lint` 0 errors ✓; backend `pnpm run build` ✓, `pnpm run test`
 214/214 ✓.
+
+---
+
+## Revision pass — 2026-10-21 (separate result downloads + UX)
+
+1. **Results are no longer appended to the referral letter.** The letter PDF
+   still lists the attached investigations (table + checklist) but contains no
+   result images. Each attached investigation with uploads downloads as its own
+   `result-{investigation}-{id}-{date}.pdf`.
+2. **Every result PDF identifies its investigation.** Branded header, title,
+   `Investigation` / `Date` / `Patient` / `MRN` table repeated on each page,
+   plus a `Result image n of N` caption above the image.
+3. **All three patient download paths share the flow**: referral detail,
+   consultation referral tab, and grouped Referral History export. Grouped
+   exports download **one letter file per referral** (e.g.
+   `referral-olubayo-cardiologist-20261021.pdf`) rather than chaining letters
+   into a multi-page document; result PDFs are de-duplicated across the group.
+4. **One referral = one page.** Letter spacing was tightened and the signature
+   block made compact so a normal letter with an investigations table no longer
+   strands its signature on a second page. A Node pagination regression test
+   renders a full letter and asserts a single page.
+5. **Download UX**: download buttons show a spinner, disable while preparing,
+   and report progress via a persistent loading toast; result images are fetched
+   in parallel and cached per URL; multiple files are saved sequentially with a
+   small gap so browsers keep each download.
+6. **Attachment resolution** uses the patient's full investigation history
+   (the same pool the doctor picks from), so results uploaded during an earlier
+   consultation are included.

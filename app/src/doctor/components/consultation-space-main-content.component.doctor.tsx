@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { FileText, TestTube, Pill, Send, Loader2, Rocket } from "lucide-react";
+import { TestTube, Pill, Send, Loader2, Rocket } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/utils";
@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { InvestigationModal } from "./modal/investigation.modal.component.doctor";
 import { MedicationModal } from "./modal/medication1.modal.component.doctor";
 import { ReferralModal } from "./modal/referral.modal.component.doctor";
-import { RebookModal } from "./modal/rebook.modal.component.doctor";
 import { InvestigationResultsForm } from "./forms/investigations-result.form.component";
 import { PhysicalExamForm } from "./forms/physical-exam.form.component.doctor";
 import { DiagnosisForm } from "./forms/diagnosis.form.component.doctor";
@@ -334,13 +333,7 @@ export function ConsultationMainContent({
               <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Referral</span>
             </button>
-            <button
-              onClick={() => setActiveModal("rebook")}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-[#5164E8] text-white rounded-md hover:bg-[#4153D7] transition-colors shadow-sm text-xs sm:text-sm font-medium flex-1 sm:flex-none justify-center"
-            >
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Rebook</span>
-            </button>
+            {/* Rebook action disabled for now. */}
 
             {/* "Completed" button only makes sense in edit mode — the assigned
                 doctor on a completed consultation (addendum mode) has no reason
@@ -377,9 +370,6 @@ export function ConsultationMainContent({
           consultationId={consultationId ?? ""}
           patientId={patientId}
         />
-      )}
-      {activeModal === "rebook" && (
-        <RebookModal onClose={() => setActiveModal(null)} />
       )}
     </div>
   );

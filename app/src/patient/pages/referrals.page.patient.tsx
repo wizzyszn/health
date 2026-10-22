@@ -1,18 +1,21 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/config/query-keys";
 import {
   getGroupedReferralsForConsultationsReq,
   getPatientProfileReq,
 } from "@/config/service/patient.service";
-import {
-  generateReferralLettersPdf,
-  type ReferralLetterImage,
-} from "@/patient/components/referral/generate-referral-letter-pdf.patient";
+import { createReferralLetterPdf } from "@/patient/components/referral/generate-referral-letter-pdf.patient";
+import { createInvestigationResultPdfs } from "@/patient/components/referral/generate-investigation-result-pdf.patient";
 import {
   buildReferralLetterData,
-  buildAttachmentChecklist,
+  applyReferralAttachments,
 } from "@/patient/components/referral/referral-letter-data.util.patient";
+import {
+  loadReferralAttachmentPool,
+  toInvestigationResultSources,
+} from "@/patient/components/referral/referral-attachments.patient";
+import { downloadPdfFiles } from "@/shared/utils/pdf-download.util";
 import useUrlSearchParams from "@/shared/hooks/use-url-search-params";
 import { toast } from "sonner";
 import { ReferralPageHeader } from "@/patient/components/referral/referral-page-header.component.patient";
@@ -26,7 +29,11 @@ import SEO from "@/shared/components/seo.component";
 
 export default function ReferralsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [downloadingGroupId, setDownloadingGroupId] = useState<string | null>(
+    null,
+  );
   const { updateParam } = useUrlSearchParams();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["patient-referrals-grouped"],
@@ -82,8 +89,27 @@ export default function ReferralsPage() {
       toast.warning("Your profile is still loading — please try again.");
       return;
     }
+    if (downloadingGroupId) return;
+
+    const groupKey =
+      group.consultation?._id || group.referrals?.[0]?._id || "group";
+    setDownloadingGroupId(groupKey);
+    const toastId = toast.loading("Preparing your referral documents…");
+
     try {
-      const letters = group.referrals.map((referral) => {
+      const hasAttachments = group.referrals.some(
+        (referral) => (referral.attachment_investigation_ids ?? []).length > 0,
+      );
+      const investigationPool = hasAttachments
+        ? await loadReferralAttachmentPool(queryClient)
+        : [];
+
+      const patientName =
+        [profile.first_name, profile.middle_name, profile.last_name]
+          .filter(Boolean)
+          .join(" ") || "—";
+
+      const lettersWithAttachments = group.referrals.map((referral) => {
         const letterData = buildReferralLetterData({
           referral: {
             specialty: referral.specialty,
@@ -94,10 +120,7 @@ export default function ReferralsPage() {
             current_medications: referral.current_medications,
           },
           patient: {
-            fullName:
-              [profile.first_name, profile.middle_name, profile.last_name]
-                .filter(Boolean)
-                .join(" ") || "—",
+            fullName: patientName,
             mrn: profile.mrn,
             dateOfBirth: profile.date_of_birth,
             gender: profile.gender || undefined,
@@ -110,21 +133,63 @@ export default function ReferralsPage() {
             referral.doctor_id?.full_name ?? "Referring Physician",
           referralDate: new Date(referral.createdAt),
         });
-        letterData.attachments = buildAttachmentChecklist(
-          referral.attachment_investigation_ids?.map(
-            (id) => `Uploaded result (${id.slice(-6).toUpperCase()})`,
-          ) ?? [],
-        );
-        // Attachment pages are resolved per-referral in the detail views; the
-        // grouped history export renders checklist rows only.
-        const images: ReferralLetterImage[] = [];
-        return { data: letterData, images };
+        return {
+          letterData,
+          records: applyReferralAttachments(
+            letterData,
+            referral.attachment_investigation_ids,
+            investigationPool,
+          ),
+        };
       });
 
-      await generateReferralLettersPdf(letters);
+      // One letter file per referral (not a combined multi-page document), so
+      // each referral stays a single sheet. Attached results are separate too.
+      const letterFiles = await Promise.all(
+        lettersWithAttachments.map((entry, index) =>
+          createReferralLetterPdf(entry.letterData, {
+            fileNameSuffix:
+              group.referrals[index]?.specialty ||
+              group.referrals[index]?._id.slice(-6),
+          }),
+        ),
+      );
+      const resultSources = toInvestigationResultSources(
+        lettersWithAttachments.flatMap((entry) => entry.records),
+        { fullName: patientName, mrn: profile.mrn },
+      );
+      const resultPdfs = await createInvestigationResultPdfs(resultSources);
+      await downloadPdfFiles([...letterFiles, ...resultPdfs]);
+
+      const letterCount = letterFiles.length;
+      const resultCount = resultPdfs.length;
+      const lettersLabel =
+        letterCount === 1
+          ? "the referral letter"
+          : `${letterCount} referral letters`;
+      const resultsLabel = `${resultCount} result ${
+        resultCount === 1 ? "file" : "files"
+      }`;
+
+      if (resultCount > 0) {
+        toast.success(`Downloaded ${lettersLabel} and ${resultsLabel}.`, {
+          id: toastId,
+        });
+      } else if (resultSources.some((source) => source.imageUrls.length > 0)) {
+        toast.warning(
+          `Downloaded ${lettersLabel}, but the attached result images could not be loaded.`,
+          { id: toastId },
+        );
+      } else {
+        toast.success(`Downloaded ${lettersLabel}.`, { id: toastId });
+      }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to generate PDF");
+      toast.error("Failed to download the referral documents.", {
+        id: toastId,
+      });
+    } finally {
+      setDownloadingGroupId(null);
     }
   };
 
@@ -169,6 +234,7 @@ export default function ReferralsPage() {
                       isExpanded={isExpanded}
                       onToggle={toggleGroup}
                       onDownload={handleDownloadPDF}
+                      downloadingGroupId={downloadingGroupId}
                     />
                   );
                 })

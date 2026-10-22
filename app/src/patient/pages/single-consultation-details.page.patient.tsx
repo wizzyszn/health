@@ -37,11 +37,17 @@ import { ConsultationReferralsTab } from "@/patient/components/consultation-deta
 import { ConsultationSummaryTab } from "@/patient/components/consultation-details/consultation-summary-tab.component.patient";
 import { generateConsultationInvestigationPdf } from "@/patient/components/consultation-details/generate-consultation-investigation-pdf.patient";
 import { generateConsultationMedicationPdf } from "@/patient/components/consultation-details/generate-consultation-medication-pdf.patient";
-import { generateReferralLetterPdf } from "@/patient/components/referral/generate-referral-letter-pdf.patient";
+import { createReferralLetterPdf } from "@/patient/components/referral/generate-referral-letter-pdf.patient";
+import { createInvestigationResultPdfs } from "@/patient/components/referral/generate-investigation-result-pdf.patient";
 import {
   buildReferralLetterData,
-  buildAttachmentChecklist,
+  applyReferralAttachments,
 } from "@/patient/components/referral/referral-letter-data.util.patient";
+import {
+  loadReferralAttachmentPool,
+  toInvestigationResultSources,
+} from "@/patient/components/referral/referral-attachments.patient";
+import { downloadPdfFiles } from "@/shared/utils/pdf-download.util";
 import { useSelector } from "react-redux";
 import { RootState } from "@/config/stores/store";
 import { PatientConsultationDetailSkeleton } from "@/shared/components/patient-record-skeletons.component.shared";
@@ -56,6 +62,9 @@ function ViewConsultationDetails() {
   const queryClient = useQueryClient();
   const tabsSectionRef = useRef<HTMLDivElement>(null);
   const [uploadingInvestigationId, setUploadingInvestigationId] = useState<
+    string | null
+  >(null);
+  const [downloadingReferralId, setDownloadingReferralId] = useState<
     string | null
   >(null);
   // Summary leads: it is the one tab that answers "what came out of this
@@ -235,17 +244,24 @@ function ViewConsultationDetails() {
       toast.warning("Your profile is still loading — please try again.");
       return;
     }
+    if (downloadingReferralId) return;
+
+    setDownloadingReferralId(referral._id);
+    const toastId = toast.loading("Preparing your referral documents…");
+
     try {
-      const attachedIds = referral.attachment_investigation_ids ?? [];
-      const attachedRecords = investigationItems.filter((item) =>
-        attachedIds.includes(item._id),
-      );
-      const images = attachedRecords.flatMap((record) =>
-        (record.result_images ?? []).map((url) => ({
-          url,
-          label: `${record.name} — uploaded result`,
-        })),
-      );
+      const hasAttachments =
+        (referral.attachment_investigation_ids ?? []).length > 0;
+      // The doctor can attach results from any consultation, so resolve them
+      // from the patient's whole investigation history.
+      const investigationPool = hasAttachments
+        ? await loadReferralAttachmentPool(queryClient)
+        : [];
+
+      const patientName =
+        [profile.first_name, profile.middle_name, profile.last_name]
+          .filter(Boolean)
+          .join(" ") || "—";
 
       const letterData = buildReferralLetterData({
         referral: {
@@ -257,10 +273,7 @@ function ViewConsultationDetails() {
           current_medications: referral.current_medications,
         },
         patient: {
-          fullName:
-            [profile.first_name, profile.middle_name, profile.last_name]
-              .filter(Boolean)
-              .join(" ") || "—",
+          fullName: patientName,
           mrn: profile.mrn,
           dateOfBirth: profile.date_of_birth,
           gender: profile.gender || undefined,
@@ -275,18 +288,42 @@ function ViewConsultationDetails() {
           (group) => group.medications,
         ),
       });
-      letterData.attachments = buildAttachmentChecklist(
-        attachedRecords.map((record) => record.name),
+      const attachedRecords = applyReferralAttachments(
+        letterData,
+        referral.attachment_investigation_ids,
+        investigationPool,
       );
-      letterData.investigations = attachedRecords.map((record) => ({
-        name: record.name,
-        date: record.createdAt,
-      }));
 
-      await generateReferralLetterPdf(letterData, images);
+      const letterPdf = await createReferralLetterPdf(letterData);
+      const resultSources = toInvestigationResultSources(attachedRecords, {
+        fullName: patientName,
+        mrn: profile.mrn,
+      });
+      const resultPdfs = await createInvestigationResultPdfs(resultSources);
+      const fileCount = await downloadPdfFiles([letterPdf, ...resultPdfs]);
+
+      if (fileCount > 1) {
+        toast.success(
+          `Downloaded the referral letter and ${fileCount - 1} result ${
+            fileCount - 1 === 1 ? "file" : "files"
+          }.`,
+          { id: toastId },
+        );
+      } else if (resultSources.some((source) => source.imageUrls.length > 0)) {
+        toast.warning(
+          "Referral letter downloaded, but the attached result images could not be loaded.",
+          { id: toastId },
+        );
+      } else {
+        toast.success("Referral letter downloaded.", { id: toastId });
+      }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to download referral letter.");
+      toast.error("Failed to download the referral documents.", {
+        id: toastId,
+      });
+    } finally {
+      setDownloadingReferralId(null);
     }
   };
 
@@ -430,6 +467,7 @@ function ViewConsultationDetails() {
                 isError={isReferralsError}
                 referrals={referrals}
                 onDownloadPdf={handleDownloadReferralPDF}
+                downloadingId={downloadingReferralId}
               />
             </TabsContent>
           </div>

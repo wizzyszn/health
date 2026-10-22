@@ -12,30 +12,23 @@ import {
   setText,
   MARGIN,
   PAGE_W,
-  PAGE_H,
-  CONTENT_W,
-  FOOTER_ZONE,
 } from "@/shared/utils/pdf-branding.util";
-import type {
-  ReferralLetterData,
-  ReferralLetterImage,
-} from "@/patient/components/referral/referral-letter-data.types.patient";
+import { withDoctorTitle } from "@/shared/utils/doctor-name.util";
+import {
+  toFileDateStamp,
+  toFileSafeSegment,
+  type GeneratedPdf,
+} from "@/shared/utils/pdf-download.util";
+import type { ReferralLetterData } from "@/patient/components/referral/referral-letter-data.types.patient";
 
-export type {
-  ReferralLetterData,
-  ReferralLetterImage,
-} from "@/patient/components/referral/referral-letter-data.types.patient";
-
-const MAX_ATTACHMENT_PAGES = 20;
+export type { ReferralLetterData } from "@/patient/components/referral/referral-letter-data.types.patient";
 
 /* ─── letter sections ─── */
 
 function greetingName(recipientName: string): string {
-  // Use "Dr" without dot to match the Carelexa letter style
-  if (recipientName.startsWith("Dr ") || recipientName.startsWith("Dr.")) {
-    return recipientName.replace(/^Dr\.?\s*/, "Dr ");
-  }
-  return `Dr ${recipientName}`;
+  // A single, canonical "Dr" prefix — the doctor may have typed it already.
+  // Fall back to a generic salutation when no specialist name was recorded.
+  return withDoctorTitle(recipientName) || "Doctor";
 }
 
 function patientAge(data: ReferralLetterData): string {
@@ -65,7 +58,7 @@ function drawPatientGrid(
     theme: "grid",
     styles: {
       fontSize: 8.5,
-      cellPadding: 2.5,
+      cellPadding: 2.2,
       textColor: REFERRAL_PALETTE.ink,
     },
     headStyles: {
@@ -112,7 +105,7 @@ function drawPatientGrid(
   });
   const table = (doc as unknown as { lastAutoTable?: { finalY: number } })
     .lastAutoTable;
-  return (table?.finalY ?? cursorY) + 8;
+  return (table?.finalY ?? cursorY) + 6;
 }
 
 function drawRecipientBlock(
@@ -125,16 +118,16 @@ function drawRecipientBlock(
   doc.setFontSize(9.5);
   setText(doc, REFERRAL_PALETTE.ink);
   const lines = [
-    data.recipient.name,
+    withDoctorTitle(data.recipient.name),
     ...(data.recipient.specialty ? [data.recipient.specialty] : []),
     data.recipient.hospital,
     ...data.recipient.addressLines,
   ].filter((line) => line.trim().length > 0);
   lines.forEach((line) => {
     doc.text(line, MARGIN, y);
-    y += 5;
+    y += 4.6;
   });
-  return y + 3;
+  return y + 2.5;
 }
 
 function drawClinicalSections(
@@ -197,7 +190,7 @@ function drawInvestigationsTable(
     },
     styles: {
       fontSize: 8.5,
-      cellPadding: 2.5,
+      cellPadding: 2.2,
       textColor: REFERRAL_PALETTE.ink,
     },
     body: data.investigations.map((item) => [
@@ -208,80 +201,36 @@ function drawInvestigationsTable(
   });
   const table = (doc as unknown as { lastAutoTable?: { finalY: number } })
     .lastAutoTable;
-  return (table?.finalY ?? y) + 8;
-}
-
-/* ─── attachment pages ─── */
-
-async function fetchImageDataUrl(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { credentials: "include" });
-    if (!res.ok) throw new Error(`fetch ${res.status}`);
-    const blob = await res.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.warn(`Referral letter: skipped attachment image (${url}).`, error);
-    return null;
-  }
-}
-
-async function appendAttachmentPages(
-  doc: jsPDF,
-  images: ReferralLetterImage[],
-): Promise<void> {
-  const selected = images.slice(0, MAX_ATTACHMENT_PAGES);
-  if (images.length > MAX_ATTACHMENT_PAGES) {
-    console.warn(
-      `Referral letter: capped attachment pages at ${MAX_ATTACHMENT_PAGES} (${images.length} requested).`,
-    );
-  }
-  for (const image of selected) {
-    const dataUrl = await fetchImageDataUrl(image.url);
-    if (!dataUrl) continue;
-    try {
-      doc.addPage();
-      drawFooterWave(doc);
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(8);
-      setText(doc, REFERRAL_PALETTE.muted);
-      doc.text(image.label, PAGE_W / 2, PAGE_H - FOOTER_ZONE, {
-        align: "center",
-      });
-      const props = doc.getImageProperties(dataUrl);
-      const boxW = CONTENT_W;
-      const boxH = PAGE_H - 2 * FOOTER_ZONE - 10;
-      const scale = Math.min(boxW / props.width, boxH / props.height);
-      const w = props.width * scale;
-      const h = props.height * scale;
-      doc.addImage(
-        dataUrl,
-        props.fileType === "PNG" ? "PNG" : "JPEG",
-        (PAGE_W - w) / 2,
-        FOOTER_ZONE / 2 + 6,
-        w,
-        h,
-      );
-    } catch (error) {
-      console.warn(
-        `Referral letter: failed to render image page (${image.label}).`,
-        error,
-      );
-    }
-  }
+  return (table?.finalY ?? y) + 6;
 }
 
 /* ─── public API ─── */
 
-/** Generates one branded referral-letter PDF and triggers the browser save. */
-export async function generateReferralLetterPdf(
+function referralFileName(
   data: ReferralLetterData,
-  images: ReferralLetterImage[] = [],
-): Promise<void> {
+  fileNameSuffix?: string,
+): string {
+  const lastName =
+    data.patient.fullName
+      .trim()
+      .split(/\s+/)
+      .pop()
+      ?.replace(/[^\w-]/g, "") || "patient";
+  const stamp = toFileDateStamp(data.referralDate);
+  const suffix = fileNameSuffix ? `-${toFileSafeSegment(fileNameSuffix)}` : "";
+  return `referral-${toFileSafeSegment(lastName)}${suffix}-${stamp}.pdf`;
+}
+
+/**
+ * Builds one branded referral-letter PDF and returns it for downloading.
+ *
+ * `fileNameSuffix` keeps exports of several referrals for the same patient
+ * from colliding — the grouped history export passes the referral specialty.
+ */
+export async function createReferralLetterPdf(
+  data: ReferralLetterData,
+  options?: { fileNameSuffix?: string },
+): Promise<GeneratedPdf> {
   const logoDataUrl = await loadLogoDataUrl();
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -322,73 +271,8 @@ export async function generateReferralLetterPdf(
   drawSignatureBlock(doc, data.referringDoctor.fullName, cursorY);
   drawFooterWave(doc);
 
-  await appendAttachmentPages(doc, images);
-
-  const lastName =
-    data.patient.fullName
-      .trim()
-      .split(/\s+/)
-      .pop()
-      ?.replace(/[^\w-]/g, "") || "patient";
-  const stamp = data.referralDate.toISOString().slice(0, 10).replace(/-/g, "");
-  doc.save(`referral-${lastName}-${stamp}.pdf`);
-}
-
-/**
- * Multi-referral export: every letter starts on a fresh page of one document.
- */
-export async function generateReferralLettersPdf(
-  letters: Array<{ data: ReferralLetterData; images?: ReferralLetterImage[] }>,
-): Promise<void> {
-  if (!letters.length) return;
-  const [first, ...rest] = letters;
-  const logoDataUrl = await loadLogoDataUrl();
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  let isFirst = true;
-
-  for (const letter of letters) {
-    if (!isFirst) {
-      doc.addPage();
-      drawFooterWave(doc);
-    }
-    const headerEnd = drawHeader(doc, logoDataUrl);
-    let cursorY = headerEnd + 12;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    setText(doc, REFERRAL_PALETTE.primary);
-    doc.text("REFERRAL LETTER", PAGE_W / 2, cursorY, { align: "center" });
-    cursorY += 8;
-    cursorY = drawPatientGrid(doc, letter.data, cursorY);
-    cursorY = drawRecipientBlock(doc, letter.data, cursorY);
-
-    // Dear Doctor line
-    cursorY = bodyText(
-      doc,
-      `Dear ${greetingName(letter.data.recipient.name)},`,
-      cursorY,
-      { size: 10.5 },
-    );
-
-    // Referring line
-    const letterPatientLastName = letter.data.patient.fullName
-      .replace(/^Mr\.?\s*/i, "")
-      .trim();
-    cursorY = bodyText(
-      doc,
-      `I am referring Mr ${letterPatientLastName} for your specialist assessment and further management.`,
-      cursorY,
-    );
-    cursorY = drawClinicalSections(doc, letter.data, cursorY);
-    cursorY = drawInvestigationsTable(doc, letter.data, cursorY);
-    drawSignatureBlock(doc, letter.data.referringDoctor.fullName, cursorY);
-    drawFooterWave(doc);
-    if (letter.images?.length && !isFirst === false) {
-      // attachment pages are only rendered in the single-letter flow
-    }
-    isFirst = false;
-  }
-  void first;
-  void rest;
-
-  doc.save("referral-letters.pdf");
+  return {
+    blob: doc.output("blob"),
+    fileName: referralFileName(data, options?.fileNameSuffix),
+  };
 }

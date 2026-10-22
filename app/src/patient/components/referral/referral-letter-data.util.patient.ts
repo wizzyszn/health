@@ -1,6 +1,7 @@
 import type {
   ReferralLetterAttachment,
   ReferralLetterData,
+  ReferralLetterInvestigation,
 } from "@/patient/components/referral/referral-letter-data.types.patient";
 
 /**
@@ -95,6 +96,82 @@ export function parseFreeTextMedications(
     .split(/\r?\n|;/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
+}
+
+/** Minimal investigation-record slice needed to print and append results. */
+export interface ReferralLetterSourceInvestigation {
+  _id: string;
+  name: string;
+  createdAt?: string;
+  /** Uploaded result images — each becomes one attachment page. */
+  result_images?: string[];
+}
+
+/** Everything the letter needs from the doctor's attachment selection. */
+export interface ReferralLetterAttachments {
+  /** Attached investigation records, in the doctor's selection order. */
+  records: ReferralLetterSourceInvestigation[];
+  attachments: ReferralLetterAttachment[];
+  investigations: ReferralLetterInvestigation[];
+}
+
+function formatInvestigationDate(value?: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/**
+ * Resolves the ids the doctor ticked into the letter's checklist rows and
+ * investigations table, returning the matched records so callers can also
+ * download each uploaded result as its own document.
+ *
+ * Follows the persisted selection order (the order the doctor ticked them) and
+ * silently skips ids that no longer resolve — investigations can be deleted
+ * after the referral was created.
+ */
+export function resolveReferralAttachments(
+  attachmentInvestigationIds: string[] | undefined,
+  investigations: ReferralLetterSourceInvestigation[],
+): ReferralLetterAttachments {
+  const byId = new Map(
+    investigations.map((investigation) => [investigation._id, investigation]),
+  );
+  const records = (attachmentInvestigationIds ?? [])
+    .map((id) => byId.get(id))
+    .filter((record): record is ReferralLetterSourceInvestigation => !!record);
+
+  return {
+    records,
+    attachments: buildAttachmentChecklist(records.map((record) => record.name)),
+    investigations: records.map((record) => ({
+      name: record.name,
+      date: formatInvestigationDate(record.createdAt),
+    })),
+  };
+}
+
+/**
+ * Applies the resolved attachments to a letter in place and returns the
+ * matched investigation records, ready to become separate result PDFs.
+ */
+export function applyReferralAttachments(
+  letterData: ReferralLetterData,
+  attachmentInvestigationIds: string[] | undefined,
+  investigations: ReferralLetterSourceInvestigation[],
+): ReferralLetterSourceInvestigation[] {
+  const resolved = resolveReferralAttachments(
+    attachmentInvestigationIds,
+    investigations,
+  );
+  letterData.attachments = resolved.attachments;
+  letterData.investigations = resolved.investigations;
+  return resolved.records;
 }
 
 export function buildReferralLetterData(params: {

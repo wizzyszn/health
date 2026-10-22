@@ -11,6 +11,8 @@ import {
   buildAttachmentChecklist,
   describeMedication,
   parseFreeTextMedications,
+  resolveReferralAttachments,
+  applyReferralAttachments,
 } from "@/patient/components/referral/referral-letter-data.util.patient";
 import { REFERRAL_PALETTE } from "@/shared/constants/company.constants";
 import { normalizeLegacySpecialty } from "@/shared/constants/referral-catalogs.constants";
@@ -179,6 +181,77 @@ describe("free-text current medications", () => {
     expect(data.clinical.medications).toEqual([
       "Lisinopril 10MILLIGRAM once daily for 30 days",
     ]);
+  });
+});
+
+describe("referral attachments", () => {
+  const pool = [
+    {
+      _id: "inv-1",
+      name: "Full Blood Count",
+      createdAt: "2026-08-20T10:00:00.000Z",
+      result_images: [
+        "https://cdn.example/fbc-1.jpg",
+        "https://cdn.example/fbc-2.jpg",
+      ],
+    },
+    {
+      _id: "inv-2",
+      name: "Chest X-Ray",
+      createdAt: "2026-08-21T10:00:00.000Z",
+      result_images: ["https://cdn.example/cxr.png"],
+    },
+    {
+      _id: "inv-3",
+      name: "Urinalysis",
+      createdAt: "2026-08-22T10:00:00.000Z",
+      result_images: [],
+    },
+  ];
+
+  it("resolves selected ids in the doctor's selection order", () => {
+    const resolved = resolveReferralAttachments(["inv-2", "inv-1"], pool);
+
+    expect(resolved.records.map((record) => record._id)).toEqual([
+      "inv-2",
+      "inv-1",
+    ]);
+    expect(resolved.attachments).toEqual([
+      { label: "Chest X-Ray", checked: true },
+      { label: "Full Blood Count", checked: true },
+    ]);
+    expect(resolved.investigations).toEqual([
+      { name: "Chest X-Ray", date: "21 Aug 2026" },
+      { name: "Full Blood Count", date: "20 Aug 2026" },
+    ]);
+  });
+
+  it("ignores ids that no longer exist and empty selections", () => {
+    expect(resolveReferralAttachments(["deleted-id"], pool)).toEqual({
+      records: [],
+      attachments: [],
+      investigations: [],
+    });
+    expect(resolveReferralAttachments(undefined, pool).records).toEqual([]);
+  });
+
+  it("applies the results to a letter and returns the attached records", () => {
+    const letter = buildReferralLetterData({
+      referral: baseReferral,
+      patient: basePatient,
+      referringDoctorFullName: "Dr. Emeka Okafor",
+      referralDate: new Date("2026-08-24T10:00:00.000Z"),
+    });
+
+    const records = applyReferralAttachments(letter, ["inv-1"], pool);
+
+    expect(letter.attachments).toEqual([
+      { label: "Full Blood Count", checked: true },
+    ]);
+    expect(letter.investigations).toEqual([
+      { name: "Full Blood Count", date: "20 Aug 2026" },
+    ]);
+    expect(records.map((record) => record._id)).toEqual(["inv-1"]);
   });
 });
 

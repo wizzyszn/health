@@ -148,7 +148,7 @@ export function sectionHeading(
   doc.setFontSize(10.5);
   setText(doc, REFERRAL_PALETTE.primary);
   doc.text(title.toUpperCase(), MARGIN, y);
-  return y + 6;
+  return y + 5;
 }
 
 export function bodyText(
@@ -164,9 +164,10 @@ export function bodyText(
     text && text.trim() ? text : "—",
     CONTENT_W,
   );
-  const y = ensureSpace(doc, cursorY, lines.length * 5 + 2);
+  const lineHeight = 4.8;
+  const y = ensureSpace(doc, cursorY, lines.length * lineHeight + 2);
   doc.text(lines, MARGIN, y);
-  return y + lines.length * 5 + 3;
+  return y + lines.length * lineHeight + 2.5;
 }
 
 /** Draw the standard Carelexa signature block at the bottom of a letter. */
@@ -175,31 +176,33 @@ export function drawSignatureBlock(
   doctorName: string,
   cursorY: number,
 ): void {
-  let y = ensureSpace(doc, cursorY, 48);
+  // Keep the compact block (name + contact lines) together with the closing
+  // line instead of stranding the signature on a page of its own.
+  let y = ensureSpace(doc, cursorY, 32);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setText(doc, REFERRAL_PALETTE.ink);
   doc.text("Kind regards,", MARGIN, y);
-  y += 12;
+  y += 10;
 
   // Doctor name in bold
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   setText(doc, REFERRAL_PALETTE.ink);
   doc.text(doctorName, MARGIN, y);
-  y += 7;
+  y += 6;
 
   // Company name
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   setText(doc, REFERRAL_PALETTE.muted);
   doc.text(COMPANY.name, MARGIN, y);
-  y += 5;
+  y += 4.5;
 
   // Phone
   doc.text(COMPANY.phone, MARGIN, y);
-  y += 5;
+  y += 4.5;
 
   // Email
   doc.text(COMPANY.email, MARGIN, y);

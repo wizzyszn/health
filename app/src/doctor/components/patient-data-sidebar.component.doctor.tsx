@@ -734,7 +734,7 @@ export function PatientDataSidebar({ patient }: PatientSidebarProps) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="font-medium text-[11px] text-[#374151]">
-                              {ref.referred_doctor_name ||
+                              {ref.specialty?.trim() ||
                                 ref.specialist_name ||
                                 "Specialist"}
                             </div>

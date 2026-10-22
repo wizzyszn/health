@@ -1083,6 +1083,10 @@ export const getPatientInvestigationListReq = (params: {
           assign_to_patient: boolean;
           user_id: string;
           consultation_id: string;
+          createdAt?: string;
+          updatedAt?: string;
+          /** Uploaded result images (filled once the patient/doctor uploads). */
+          result_images?: string[];
           doctor_id: {
             _id: string;
             first_name: string;
